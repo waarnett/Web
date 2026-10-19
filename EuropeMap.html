@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EU, Eurozone, Schengen Area and NATO Membership</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+    <style>
+      body {
+        font-family: -apple-system, system-ui, sans-serif;
+        margin: 2em;
+        color: #222;
+      }
+
+      h1 {
+        font-size: 1.4em;
+      }
+
+      /* ---------- map ---------- */
+      .mapbox {
+        max-width: 960px;
+        margin-bottom: 1.5em;
+      }
+
+      .map-bar {
+        display: flex;
+        gap: 0.5em;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 0.5em;
+        font-size: 0.9em;
+      }
+
+      .map-bar button {
+        font: inherit;
+        padding: 5px 14px;
+        border: 1px solid #1f3a5f;
+        border-radius: 6px;
+        background: #fff;
+        color: #1f3a5f;
+        cursor: pointer;
+      }
+
+      .map-bar button[aria-pressed="true"] {
+        background: #1f3a5f;
+        color: #fff;
+      }
+
+      #euro-users-wrap {
+        margin-left: 0.6em;
+        color: #444;
+      }
+
+      #map {
+        width: 100%;
+        height: auto;
+        display: block;
+        border: 1px solid #1f3a5f;
+      }
+
+      #map .water {
+        fill: #2b7bd6;
+      }
+
+      #map .land {
+        stroke: #222;
+        stroke-width: 0.5;
+        stroke-linejoin: round;
+      }
+
+      #map .inset-frame {
+        fill: none;
+        stroke: #111;
+        stroke-width: 1.5;
+      }
+
+      #map text {
+        font-family: -apple-system, system-ui, sans-serif;
+        font-weight: 700;
+        fill: #111;
+        text-anchor: middle;
+        dominant-baseline: central;
+        paint-order: stroke fill;
+        stroke: #fff;
+        stroke-width: 2.4px;
+        stroke-linejoin: round;
+        pointer-events: none;
+      }
+
+      #map .leader {
+        stroke: #111;
+        stroke-width: 0.8;
+      }
+
+      #map .dot {
+        fill: #111;
+        stroke: #fff;
+        stroke-width: 0.5;
+      }
+
+      .legend {
+        display: flex;
+        gap: 1.2em;
+        flex-wrap: wrap;
+        font-size: 0.85em;
+        margin-top: 0.4em;
+        color: #333;
+      }
+
+      .legend .sw {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 1px solid #555;
+        vertical-align: -2px;
+        margin-right: 5px;
+      }
+
+      #map-msg {
+        color: #a33;
+        font-size: 0.85em;
+      }
+
+      .map-note {
+        font-size: 0.8em;
+        color: #555;
+        margin-top: 0.5em;
+        line-height: 1.45;
+      }
+
+      /* ---------- table ---------- */
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 860px;
+      }
+
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 6px 10px;
+        text-align: left;
+      }
+
+      th {
+        background: #1f3a5f;
+        color: #fff;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      th:hover {
+        background: #2a4e7f;
+      }
+
+      th .sort-arrow {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 0.75em;
+        opacity: 0.45;
+        vertical-align: middle;
+      }
+
+      th.sort-asc .sort-arrow {
+        opacity: 1;
+      }
+
+      th.sort-desc .sort-arrow {
+        opacity: 1;
+      }
+
+      td.c {
+        text-align: center;
+      }
+
+      .cell-val {
+        display: inline-block;
+        text-align: left;
+      }
+
+      tr:nth-child(even) td {
+        background: #f4f6fa;
+      }
+
+      sup {
+        font-size: 0.7em;
+        color: #1f3a5f;
+      }
+
+      sup.ph {
+        visibility: hidden;
+        user-select: none;
+      }
+
+      .native {
+        font-size: 0.9em;
+        color: #444;
+      }
+
+      .note {
+        font-size: 0.85em;
+        color: #444;
+        margin-top: 1.2em;
+        max-width: 860px;
+        line-height: 1.5;
+      }
+
+      .note h2 {
+        font-size: 1em;
+        margin: 0 0 0.4em;
+      }
+
+      .note ol {
+        margin: 0;
+        padding-left: 1.3em;
+      }
+
+      .note li {
+        margin-bottom: 0.45em;
+      }
+
+      .verified {
+        font-size: 0.8em;
+        color: #666;
+        border-top: 1px solid #ccc;
+        margin-top: 1.2em;
+        padding-top: 0.6em;
+        max-width: 860px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>EU, Eurozone, Schengen Area and NATO Membership</h1>
+
+    <div class="mapbox">
+      <div class="map-bar">
+        <button data-group="EU" aria-pressed="true">EU</button>
+        <button data-group="Eurozone" aria-pressed="false">Eurozone</button>
+        <button data-group="Schengen" aria-pressed="false">Schengen</button>
+        <button data-group="NATO" aria-pressed="false">NATO</button>
+        <label id="euro-users-wrap" style="display:none"><input type="checkbox" id="euro-users">
+          shade non-member euro users</label>
+      </div>
+      <div id="map-msg">Loading map data…</div>
+      <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="legend" id="legend"></div>
+      <p class="map-note">Colours are read from the table below. Greenland and the Faroe Islands are
+        coloured for NATO only (covered through Denmark; outside the EU and Schengen). The Isle of
+        Man, Jersey and Guernsey are coloured with the UK for NATO (UK responsible for their
+        defence). Åland is coloured with Finland. Northern Cyprus is striped in the EU and Eurozone
+        views: de jure EU territory of the Republic of Cyprus, but EU law is suspended there
+        (Protocol 10). Microstates are too small to see at this scale; Liechtenstein is labelled as
+        a Schengen member. Kosovo*: see note below the table. Boundaries: Natural Earth 1:50m via
+        world-atlas; their depiction implies no position on any disputed border.</p>
+    </div>
+
+    <table id="membership-table">
+      <thead>
+        <tr>
+          <th data-col="0">Country <span class="sort-arrow">▲▼</span></th>
+          <th class="c" data-col="1">EU <span class="sort-arrow">▲▼</span></th>
+          <th class="c" data-col="2">Eurozone <span class="sort-arrow">▲▼</span></th>
+          <th class="c" data-col="3">Schengen <span class="sort-arrow">▲▼</span></th>
+          <th class="c" data-col="4">NATO <span class="sort-arrow">▲▼</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Albania <span class="native">(Shqipëria)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Andorra <span class="native">(Andorra)</span></td>
+          <td class="c"><span class="cell-val">No<sup>8</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>1</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>2</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Austria <span class="native">(Österreich)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Belgium <span class="native">(België / Belgique / Belgien)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Bosnia and Herzegovina <span class="native">(Bosna i Hercegovina / Босна и
+              Херцеговина)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Bulgaria <span class="native">(България)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Canada <span class="native">(Canada)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Croatia <span class="native">(Hrvatska)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Cyprus <span class="native">(Κύπρος / Kıbrıs)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>6</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Czechia <span class="native">(Česko)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Denmark <span class="native">(Danmark)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Estonia <span class="native">(Eesti)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Finland <span class="native">(Suomi / Finland)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>France <span class="native">(France)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Germany <span class="native">(Deutschland)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Greece <span class="native">(Ελλάδα)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Hungary <span class="native">(Magyarország)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Iceland <span class="native">(Ísland)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Ireland <span class="native">(Éire / Ireland)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>7</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Italy <span class="native">(Italia)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Kosovo* <span class="native">(Kosova / Косово)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>5</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Latvia <span class="native">(Latvija)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Liechtenstein <span class="native">(Liechtenstein)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Lithuania <span class="native">(Lietuva)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Luxembourg <span class="native">(Lëtzebuerg / Luxembourg / Luxemburg)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Malta <span class="native">(Malta)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Monaco <span class="native">(Monaco)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>1</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>3</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Montenegro <span class="native">(Crna Gora / Црна Гора)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>5</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Netherlands <span class="native">(Nederland)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>North Macedonia <span class="native">(Северна Македонија)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Norway <span class="native">(Norge / Noreg)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Poland <span class="native">(Polska)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Portugal <span class="native">(Portugal)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Romania <span class="native">(România)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>San Marino <span class="native">(San Marino)</span></td>
+          <td class="c"><span class="cell-val">No<sup>8</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>1</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>2</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Serbia <span class="native">(Srbija / Србија)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Slovakia <span class="native">(Slovensko)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Slovenia <span class="native">(Slovenija)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Spain <span class="native">(España)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Sweden <span class="native">(Sverige)</span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Switzerland <span class="native">(Schweiz / Suisse / Svizzera / Svizra)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Türkiye (Turkey) <span class="native">(Türkiye)</span></td>
+          <td class="c"><span class="cell-val">No<sup>9</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>United Kingdom <span class="native">(United Kingdom)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>United States <span class="native">(United States)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">Yes<sup class="ph">0</sup></span></td>
+        </tr>
+        <tr>
+          <td>Vatican City <span class="native">(Stato della Città del Vaticano / Status Civitatis
+              Vaticanae)</span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>1</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup>4</sup></span></td>
+          <td class="c"><span class="cell-val">No<sup class="ph">0</sup></span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <h2>Totals: EU 27 &middot; Eurozone 21 &middot; Schengen 29 &middot; NATO 32</h2>
+      <ol>
+        <li><strong>Euro by agreement, not euro area membership.</strong> Andorra, Monaco, San
+          Marino and Vatican City use the euro as official currency and legal tender and may mint
+          limited euro coins (never banknotes) under monetary agreements with the EU. They are
+          outside ECB governance and outside the euro-area count of 21. (European Commission,
+          "Legislation on the euro coins"; "The euro outside the euro area".)</li>
+        <li><strong>Andorra and San Marino: border agreements pending.</strong> Neither is a party
+          to the Schengen acquis. EU agreements on border management with each (negotiations
+          concluded 26 Jan 2026; initialled 25 Mar and 21 Apr 2026; Commission proposals COM(2026)
+          444 and COM(2026) 445 of 7 Sep 2026 on signature and provisional application) lift checks
+          on persons at their borders with France and Spain, and with Italy, and give their
+          residence permits Schengen-wide effect (90 days in any 180). The driver is the Entry/Exit
+          System, fully deployed at all Schengen external borders since 10 April 2026, which would
+          otherwise register their residents as overstayers. Provisional application begins only
+          after the Council decisions are adopted and notifications exchanged.</li>
+        <li><strong>Monaco: treated as inside Schengen via France.</strong> Not a Schengen party,
+          but France applies the Schengen acquis to Monaco; the France–Monaco land border is treated
+          as internal, and France performs controls at Monaco's sea border as an external Schengen
+          border. Monaco also forms a customs union with France.</li>
+        <li><strong>Vatican City: open border with Italy.</strong> Not a Schengen party; no
+          systematic checks on the Rome boundary, and Italy polices St Peter's Square under the 1929
+          Lateran Treaty. The Holy See is the subject of international law that holds the treaties;
+          "Vatican City" is its territory.</li>
+        <li><strong>Unilateral euro users.</strong> Montenegro and Kosovo* use the euro with no
+          agreement of any kind with the EU; neither is in the euro area, and neither has any say in
+          ECB policy. The ECB and Commission treat unilateral euroisation as incompatible with the
+          Treaty path to adoption, but have not required reversal.</li>
+        <li><strong>Cyprus.</strong> An EU member legally obliged to join Schengen; the Council has
+          not yet lifted internal border controls, and accession is not automatic — it needs a
+          unanimous Council decision after a positive Schengen evaluation. As of October 2026 the
+          item is not on the JHA Council agenda and Nicosia now expects full accession in 2027.
+          Cyprus does apply parts of the acquis (SIS since 25 July 2023) and issues national, not
+          Schengen, visas.</li>
+        <li><strong>Ireland.</strong> Opted out of Schengen by protocol, linked to the Common Travel
+          Area with the United Kingdom; it participates selectively (e.g. the Schengen Information
+          System). Denmark is a full Schengen member despite its justice and home affairs opt-out.
+        </li>
+        <li><strong>Andorra and San Marino: Association Agreement.</strong> The Council authorised
+          signature and provisional application on 16 July 2026; signature in Brussels is scheduled
+          for 19 October 2026. It integrates both into the extended single market (with progressive
+          access for financial services) but does not make them EU members, and Monaco's parallel
+          negotiations remain suspended since September 2023. Andorra is already in a customs union
+          with the EU for goods.</li>
+        <li><strong>EU candidate countries and potential candidates.</strong> Officially recognised
+          candidate countries in this table are Albania, Bosnia and Herzegovina, Montenegro, North
+          Macedonia, Serbia, and Türkiye (talks frozen since 2018). (Other candidates not listed in
+          this table are Georgia, Moldova, and Ukraine.) Kosovo* applied in December 2022 and is
+          designated a potential candidate.</li>
+      </ol>
+      <p>NATO's official list uses <strong>Türkiye</strong>; Chinese official usage remains 土耳其
+        (<em>Tǔ'ěrqí</em>). Chinese-language equivalents for the column headings: EU 欧盟
+        (<em>Ōuméng</em>), Eurozone 欧元区 (<em>Ōuyuánqū</em>), Schengen Area 申根区 (<em>Shēngēnqū</em>),
+        NATO 北约 (<em>Běiyuē</em>).</p>
+      <p>* This designation is without prejudice to positions on status, and is in line with UNSCR
+        1244/1999 and the ICJ Opinion on the Kosovo declaration of independence.</p>
+    </div>
+
+    <p class="verified">Checked 17 October 2026 against: European Commission DG ECFIN (Bulgaria and
+      the euro; euro coin legislation; the euro outside the euro area), ECB press release of 1
+      January 2026, Council of the EU (Decision (EU) 2025/1407; Schengen pages, reviewed 7 July and
+      10 August 2026; press releases of 16 July 2026), European Commission DG HOME (Schengen area),
+      European Commission DG NEAR / Consilium (EU enlargement: candidate and potential candidate
+      countries), EUR-Lex COM(2026) 444 and COM(2026) 445, and nato.int (member countries). Watch
+      items: Council adoption of the Andorra and San Marino border-management decisions; the
+      Association Agreement signature of 19 October 2026; a Council decision on Cyprus's Schengen
+      accession, now expected 2027.</p>
+
+    <!-- ===== Table sorting ===== -->
+    <script>
+      (function() {
+        const table = document.getElementById('membership-table');
+        const tbody = table.querySelector('tbody');
+        const headers = table.querySelectorAll('th');
+        const defaultRows = Array.from(tbody.querySelectorAll('tr'));
+        let currentSort = {
+          col: null,
+          dir: null
+        };
+
+        function getCellSortValue(tr, colIndex) {
+          const td = tr.children[colIndex];
+          if (colIndex === 0) {
+            return td.childNodes[0].textContent.trim();
+          } else {
+            const text = td.textContent.trim();
+            return text.startsWith('Yes') ? 'Yes' : 'No';
+          }
+        }
+        headers.forEach((th, colIndex) => {
+          th.addEventListener('click', () => {
+            const arrow = th.querySelector('.sort-arrow');
+            let dir = 'asc';
+            if (currentSort.col === colIndex) {
+              if (currentSort.dir === 'asc') dir = 'desc';
+              else if (currentSort.dir === 'desc') dir = 'none';
+            }
+            headers.forEach(h => {
+              h.querySelector('.sort-arrow').textContent = '▲▼';
+              h.classList.remove('sort-asc', 'sort-desc');
+            });
+            if (dir === 'none') {
+              currentSort = {
+                col: null,
+                dir: null
+              };
+              defaultRows.forEach(row => tbody.appendChild(row));
+              return;
+            }
+            currentSort = {
+              col: colIndex,
+              dir: dir
+            };
+            th.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+            arrow.textContent = dir === 'asc' ? '▲' : '▼';
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort((a, b) => {
+              const valA = getCellSortValue(a, colIndex);
+              const valB = getCellSortValue(b, colIndex);
+              let cmp = 0;
+              if (colIndex === 0) {
+                cmp = valA.localeCompare(valB);
+              } else {
+                if (valA === valB) {
+                  cmp = getCellSortValue(a, 0).localeCompare(getCellSortValue(b, 0));
+                } else {
+                  cmp = valA.localeCompare(valB);
+                }
+              }
+              return dir === 'asc' ? cmp : -cmp;
+            });
+            rows.forEach(row => tbody.appendChild(row));
+          });
+        });
+      })();
+    </script>
+
+    <!-- ===== Membership map ===== -->
+    <script>
+      (function() {
+        const W = 960,
+          H = 700;
+        const msg = document.getElementById('map-msg');
+        const GROUPS = [{
+            key: 'EU',
+            col: 1,
+            color: '#f5c400',
+            tint: '#fbe9a0'
+          },
+          {
+            key: 'Eurozone',
+            col: 2,
+            color: '#3fae64',
+            tint: '#c3e8cf'
+          },
+          {
+            key: 'Schengen',
+            col: 3,
+            color: '#f08a3c',
+            tint: '#f9d3b5'
+          },
+          {
+            key: 'NATO',
+            col: 4,
+            color: '#9b6fd1',
+            tint: '#dccdf0'
+          }
+        ];
+        const G = Object.fromEntries(GROUPS.map(g => [g.key, g]));
+        // ISO 3166-1 numeric codes (world-atlas feature ids)
+        const ISO = {
+          "Albania": "008",
+          "Andorra": "020",
+          "Austria": "040",
+          "Belgium": "056",
+          "Bosnia and Herzegovina": "070",
+          "Bulgaria": "100",
+          "Canada": "124",
+          "Croatia": "191",
+          "Cyprus": "196",
+          "Czechia": "203",
+          "Denmark": "208",
+          "Estonia": "233",
+          "Finland": "246",
+          "France": "250",
+          "Germany": "276",
+          "Greece": "300",
+          "Hungary": "348",
+          "Iceland": "352",
+          "Ireland": "372",
+          "Italy": "380",
+          "Latvia": "428",
+          "Liechtenstein": "438",
+          "Lithuania": "440",
+          "Luxembourg": "442",
+          "Malta": "470",
+          "Monaco": "492",
+          "Montenegro": "499",
+          "Netherlands": "528",
+          "North Macedonia": "807",
+          "Norway": "578",
+          "Poland": "616",
+          "Portugal": "620",
+          "Romania": "642",
+          "San Marino": "674",
+          "Serbia": "688",
+          "Slovakia": "703",
+          "Slovenia": "705",
+          "Spain": "724",
+          "Sweden": "752",
+          "Switzerland": "756",
+          "Türkiye": "792",
+          "United Kingdom": "826",
+          "United States": "840",
+          "Vatican City": "336"
+        };
+        // Name fallbacks (Natural Earth short names)
+        const ALT = {
+          "Bosnia and Herzegovina": ["Bosnia and Herz.", "Bosnia and Herzegovina"],
+          "North Macedonia": ["Macedonia", "North Macedonia", "N. Macedonia"],
+          "Türkiye": ["Turkey", "Türkiye"],
+          "United States": ["United States of America"],
+          "Czechia": ["Czech Rep.", "Czech Republic"],
+          "Vatican City": ["Vatican"],
+          "Kosovo": ["Kosovo"]
+        };
+        const LABEL = {
+          "Bosnia and Herzegovina": "Bosnia &\nHerz.",
+          "North Macedonia": "N. Macedonia",
+          "United Kingdom": "United\nKingdom",
+          "Kosovo": "Kosovo*",
+          "United States": "United States"
+        };
+        // [lon, lat] label positions where the largest-polygon centroid is a poor spot
+        const OVERRIDE = {
+          "Croatia": [16.4, 45.5],
+          "Norway": [9.2, 61.5],
+          "United States": [-98, 39],
+          "Canada": [-105, 58]
+        };
+        // Leader-line offsets in map units for small countries
+        const LEADER = {
+          "Luxembourg": [-42, 22],
+          "Liechtenstein": [14, -24],
+          "Malta": [0, 24],
+          "Slovenia": [-38, 16],
+          "Montenegro": [-44, 14],
+          "Albania": [-40, 16],
+          "Kosovo": [40, -8],
+          "North Macedonia": [42, 22]
+        };
+        // Territories mapped separately by Natural Earth
+        const DEPS = [{
+            ids: ["248"],
+            names: ["Aland", "Åland"],
+            groups: ["EU", "Eurozone", "Schengen", "NATO"]
+          },
+          {
+            ids: ["234"],
+            names: ["Faeroe Is.", "Faroe Is.", "Faroe Islands"],
+            groups: ["NATO"]
+          },
+          {
+            ids: ["304"],
+            names: ["Greenland"],
+            groups: ["NATO"]
+          },
+          {
+            ids: ["833", "832", "831"],
+            names: ["Isle of Man", "Jersey", "Guernsey"],
+            groups: ["NATO"]
+          }
+        ];
+        const NCYPRUS = ["N. Cyprus", "Northern Cyprus"];
+        const EURO_USERS = ["Andorra", "Monaco", "San Marino", "Vatican City", "Montenegro",
+          "Kosovo"
+        ];
+        // ---- read memberships from the table ----
+        const members = {};
+        document.querySelectorAll('#membership-table tbody tr').forEach(tr => {
+          const name = tr.children[0].childNodes[0].textContent.trim()
+            .replace(/\*$/, '').replace(/\s*\(Turkey\)$/, '');
+          const m = {};
+          GROUPS.forEach(g => m[g.key] = tr.children[g.col].textContent.trim().startsWith(
+            'Yes'));
+          members[name] = m;
+        });
+        let current = 'EU';
+        const euroBox = document.getElementById('euro-users');
+        if (typeof d3 === 'undefined' || typeof topojson === 'undefined') {
+          msg.textContent = 'Map libraries did not load — this map needs an internet connection.';
+          return;
+        }
+        d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json').then(world => {
+          msg.textContent = '';
+          const all = topojson.feature(world, world.objects.countries).features
+            .filter(f => d3.geoBounds(f)[0][1] > -60); // drop Antarctica
+          const byId = new Map(),
+            byName = new Map();
+          all.forEach(f => {
+            if (f.id) byId.set(String(f.id), f);
+            byName.set(f.properties.name, f);
+          });
+
+          function find(ids, names) {
+            for (const id of ids)
+              if (byId.has(id)) return byId.get(id);
+            for (const n of names)
+              if (byName.has(n)) return byName.get(n);
+            return null;
+          }
+          const featName = new Map(),
+            missing = [];
+          Object.keys(members).forEach(name => {
+            const f = find(ISO[name] ? [ISO[name]] : [], [name, ...(ALT[name] || [])]);
+            if (f) featName.set(f, name);
+            else missing.push(name);
+          });
+          const featDep = new Map();
+          DEPS.forEach(d => d.ids.forEach((id, i) => {
+            const f = find([id], [d.names[i] || d.names[0], ...d.names]);
+            if (f) featDep.set(f, d);
+          }));
+          const nCyprus = find([], NCYPRUS);
+          if (missing.length) {
+            msg.textContent = 'Not found on map: ' + missing.join(', ');
+          }
+          // ---- SVG scaffolding ----
+          const svg = d3.select('#map').attr('viewBox', `0 0 ${W} ${H}`);
+          const defs = svg.append('defs');
+          GROUPS.forEach(g => {
+            const p = defs.append('pattern').attr('id', 'hatch-' + g.key)
+              .attr('width', 5).attr('height', 5).attr('patternUnits', 'userSpaceOnUse')
+              .attr('patternTransform', 'rotate(45)');
+            p.append('rect').attr('width', 5).attr('height', 5).attr('fill', '#fff');
+            p.append('rect').attr('width', 2.4).attr('height', 5).attr('fill', g.color);
+          });
+          svg.append('rect').attr('class', 'water').attr('width', W).attr('height', H);
+          // main projection: Iceland to the Caucasus, North Africa coast to North Cape
+          const proj = d3.geoConicConformal().parallels([40, 65]).rotate([-12, 0]);
+          const frame = {
+            type: 'MultiPoint',
+            coordinates: []
+          };
+          for (let lon = -25; lon <= 45; lon += 5) frame.coordinates.push([lon, 34], [lon,
+            71]);
+          for (let lat = 34; lat <= 71; lat += 3) frame.coordinates.push([-25, lat], [45,
+            lat]);
+          proj.fitExtent([
+            [6, 6],
+            [W - 6, H - 6]
+          ], frame);
+          const path = d3.geoPath(proj);
+          const mainPaths = svg.append('g').selectAll('path').data(all).join('path')
+            .attr('class', 'land').attr('d', path);
+          const labelLayer = svg.append('g');
+          // ---- NATO inset (USA & Canada) ----
+          const rightLimit = proj([-11, 46])[0] - 12;
+          const iw = Math.max(150, Math.min(230, rightLimit - 8)),
+            ih = Math.round(iw * 0.72);
+          const ix = 8,
+            iy = Math.max(8, Math.round(proj([-15, 47])[1] - ih / 2));
+          defs.append('clipPath').attr('id', 'inset-clip')
+            .append('rect').attr('width', iw).attr('height', ih);
+          const inset = svg.append('g').attr('transform', `translate(${ix},${iy})`);
+          const insetInner = inset.append('g').attr('clip-path', 'url(#inset-clip)');
+          insetInner.append('rect').attr('class', 'water').attr('width', iw).attr('height',
+            ih);
+          const iproj = d3.geoConicConformal().parallels([30, 60]).rotate([100, 0])
+            .fitExtent([
+              [4, 4],
+              [iw - 4, ih - 4]
+            ], {
+              type: 'MultiPoint',
+              coordinates: [
+                [-168, 54],
+                [-165, 70],
+                [-55, 47],
+                [-62, 82],
+                [-124, 25],
+                [-80, 25],
+                [-100, 83]
+              ]
+            });
+          const ipath = d3.geoPath(iproj);
+          const insetPaths = insetInner.append('g').selectAll('path').data(all).join('path')
+            .attr('class', 'land').attr('d', ipath);
+          const insetLabels = insetInner.append('g');
+          inset.append('rect').attr('class', 'inset-frame').attr('width', iw).attr('height',
+            ih);
+          // ---- label geometry ----
+          function largestPolygon(f) {
+            const g = f.geometry;
+            if (g.type === 'Polygon') return {
+              type: 'Polygon',
+              coordinates: g.coordinates
+            };
+            let best = null,
+              bestA = -1;
+            g.coordinates.forEach(c => {
+              const p = {
+                  type: 'Polygon',
+                  coordinates: c
+                },
+                a = d3.geoArea(p);
+              if (a > bestA) {
+                bestA = a;
+                best = p;
+              }
+            });
+            return best;
+          }
+
+          function labelInfo(f, name, pr, pa) {
+            const poly = largestPolygon(f);
+            const pt = OVERRIDE[name] ? pr(OVERRIDE[name]) : pa.centroid(poly);
+            const size = Math.max(8, Math.min(15, Math.sqrt(Math.abs(pa.area(poly))) / 6));
+            return {
+              name,
+              text: LABEL[name] || name,
+              pt,
+              size,
+              leader: LEADER[name]
+            };
+          }
+          const mainInfo = [],
+            insetInfo = [];
+          featName.forEach((name, f) => {
+            if (name === 'United States' || name === 'Canada') insetInfo.push(labelInfo(f,
+              name, iproj, ipath));
+            else mainInfo.push(labelInfo(f, name, proj, path));
+          });
+
+          function drawLabels(layer, list, group) {
+            layer.selectAll('*').remove();
+            list.filter(d => members[d.name][group]).forEach(d => {
+              const g = layer.append('g');
+              let [x, y] = d.pt, lx = x, ly = y;
+              if (d.leader) {
+                lx = x + d.leader[0];
+                ly = y + d.leader[1];
+                g.append('line').attr('class', 'leader').attr('x1', x).attr('y1', y).attr(
+                  'x2', lx).attr('y2', ly);
+                g.append('circle').attr('class', 'dot').attr('cx', x).attr('cy', y).attr(
+                  'r', 1.8);
+              }
+              const size = d.leader ? 8.5 : d.size;
+              const t = g.append('text').attr('x', lx).attr('y', ly).style('font-size',
+                size + 'px');
+              const lines = d.text.split('\n');
+              lines.forEach((s, i) => t.append('tspan').attr('x', lx)
+                .attr('dy', i === 0 ? (-(lines.length - 1) * 0.55) + 'em' : '1.1em')
+                .text(s));
+            });
+          }
+
+          function fillFor(f, group) {
+            const g = G[group];
+            const name = featName.get(f);
+            if (name && members[name][group]) return g.color;
+            const dep = featDep.get(f);
+            if (dep && dep.groups.includes(group)) return g.color;
+            if (f === nCyprus && (group === 'EU' || group === 'Eurozone'))
+            return `url(#hatch-${group})`;
+            if (group === 'Eurozone' && euroBox.checked && name && EURO_USERS.includes(name))
+              return g.tint;
+            return '#fff';
+          }
+
+          function legend(group) {
+            const g = G[group];
+            const n = Object.values(members).filter(m => m[group]).length;
+            let h =
+              `<span><span class="sw" style="background:${g.color}"></span>${group} member (${n})</span>` +
+              `<span><span class="sw" style="background:#fff"></span>not a member</span>`;
+            if (group === 'EU' || group === 'Eurozone')
+              h +=
+              `<span><span class="sw" style="background:repeating-linear-gradient(45deg,${g.color} 0 2px,#fff 2px 5px)"></span>Northern Cyprus (EU law suspended)</span>`;
+            if (group === 'Eurozone' && euroBox.checked)
+              h +=
+              `<span><span class="sw" style="background:${g.tint}"></span>uses the euro, not a member</span>`;
+            document.getElementById('legend').innerHTML = h;
+          }
+
+          function update() {
+            mainPaths.attr('fill', f => fillFor(f, current));
+            insetPaths.attr('fill', f => fillFor(f, current));
+            drawLabels(labelLayer, mainInfo, current);
+            drawLabels(insetLabels, insetInfo, current);
+            inset.style('display', current === 'NATO' ? null : 'none');
+            document.getElementById('euro-users-wrap').style.display = current ===
+              'Eurozone' ? '' : 'none';
+            legend(current);
+          }
+          document.querySelectorAll('.map-bar button').forEach(b => b.addEventListener(
+            'click', () => {
+              current = b.dataset.group;
+              document.querySelectorAll('.map-bar button').forEach(x =>
+                x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+              update();
+            }));
+          euroBox.addEventListener('change', update);
+          update();
+        }).catch(err => {
+          msg.textContent = 'Could not load map boundaries (' + err.message +
+            '). This map needs an internet connection.';
+        });
+      })();
+    </script>
+  </body>
+
+</html>

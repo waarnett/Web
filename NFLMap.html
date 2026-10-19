@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFL Teams Map</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- D3.js v7 and TopoJSON Client v3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .state-feature {
+      fill: #ffffff;
+      stroke: none;
+      transition: fill 0.15s ease;
+    }
+    .state-feature:hover {
+      fill: #f8fafc;
+    }
+    .state-borders {
+      fill: none;
+      stroke: #64748b;
+      stroke-width: 0.85;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      pointer-events: none;
+    }
+    .nation-border {
+      fill: none;
+      stroke: #1e293b;
+      stroke-width: 1.35;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      pointer-events: none;
+    }
+
+    .team-marker {
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .team-marker image {
+      transition: filter 0.2s ease, opacity 0.2s ease;
+      filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.35));
+      pointer-events: none;
+    }
+    .team-marker:hover image {
+      filter: drop-shadow(0px 0px 6px rgba(37, 99, 235, 0.9)) drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.4));
+    }
+    .team-marker.selected image {
+      filter: drop-shadow(0px 0px 8px #d97706) drop-shadow(0px 3px 6px rgba(0,0,0,0.5));
+    }
+    .team-marker.dimmed {
+      opacity: 0.08;
+      pointer-events: none;
+    }
+
+    .conf-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+      border-color: #2563eb;
+    }
+    .conf-btn-afc.active {
+      background: #dc2626;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+      border-color: #dc2626;
+    }
+    .division-btn.active {
+      background-color: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+      border-color: #0f172a;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col overflow-y-auto select-none">
+
+  <!-- Header & Toolbar -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-2 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-[1700px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-3">
+      
+      <!-- Brand & Information -->
+      <div class="flex items-center gap-3">
+        <img 
+          src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" 
+          alt="NFL Logo" 
+          class="w-8 h-10 object-contain drop-shadow-sm flex-shrink-0"
+        >
+        <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">NFL Teams Map</h1>
+      </div>
+
+      <!-- Controls Toolbar -->
+      <div class="flex items-center gap-2 flex-wrap justify-center">
+        <!-- Conference Buttons: Both, AFC, NFC -->
+        <div class="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-inner">
+          <button onclick="setConference('BOTH')" id="conf-both" class="conf-btn active px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-slate-400"></span>Both (32)
+          </button>
+          <button onclick="setConference('AFC')" id="conf-afc" class="conf-btn conf-btn-afc px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>AFC (16)
+          </button>
+          <button onclick="setConference('NFC')" id="conf-nfc" class="conf-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>NFC (16)
+          </button>
+        </div>
+
+        <!-- Dynamic Division Filter Group -->
+        <div id="division-filter-group" class="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-inner"></div>
+
+        <!-- Zoom, Reset & Exports -->
+        <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shadow-inner">
+          <button onclick="zoomMap(1.3)" title="Zoom In" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition shadow-sm">
+            +
+          </button>
+          <button onclick="zoomMap(0.77)" title="Zoom Out" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition shadow-sm">
+            &minus;
+          </button>
+          <button onclick="resetMapView()" title="Reset Zoom and Selection" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition shadow-sm">
+            Reset
+          </button>
+          <div class="h-4 w-[1px] bg-slate-300 mx-0.5"></div>
+          <button onclick="exportStandaloneSVG()" title="Export Photoshop-compatible SVG" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition flex items-center gap-1.5 shadow-sm">
+            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            SVG
+          </button>
+          <button onclick="exportPNG()" title="Export complete high-resolution PNG" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            PNG
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Map Container -->
+  <main class="relative w-full h-[650px] bg-slate-100 flex items-center justify-center border-b border-slate-200 overflow-hidden flex-shrink-0">
+
+    <!-- Loading Overlay -->
+    <div id="loader-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-40 transition-opacity duration-300">
+      <div class="relative w-10 h-10">
+        <div class="absolute inset-0 rounded-full border-4 border-slate-200 border-t-blue-600 animate-spin"></div>
+      </div>
+      <div class="text-center">
+        <h3 id="loader-title" class="text-sm font-semibold text-slate-800">Preparing Map & Live Standings</h3>
+        <p id="loader-sub" class="text-xs text-slate-500 mt-1 max-w-sm">Embedding high-res logos & cartography...</p>
+      </div>
+    </div>
+
+    <!-- Interactive SVG Element -->
+    <svg id="nfl-map-svg" viewBox="0 0 975 610" class="w-full h-full cursor-grab active:cursor-grabbing select-none" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <filter id="map-drop-shadow" x="-3%" y="-3%" width="106%" height="106%">
+          <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#64748b" flood-opacity="0.25" />
+        </filter>
+      </defs>
+
+      <g id="map-zoom-container">
+        <g id="land-shadow-layer" filter="url(#map-drop-shadow)"></g>
+        <g id="states-fill-layer"></g>
+        <path id="state-borders-mesh" class="state-borders"></path>
+        <path id="nation-border-mesh" class="nation-border"></path>
+        <g id="teams-marker-layer"></g>
+      </g>
+    </svg>
+
+    <!-- Lower-left Projection Info Card -->
+    <div class="absolute bottom-5 left-6 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200/90 shadow-md text-xs flex flex-col gap-1.5 z-20 pointer-events-none">
+      <div class="text-[12px] font-semibold text-slate-800">
+        Cartographic Albers Equal-Area Projection (US Atlas 10m)
+      </div>
+      <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-100 flex items-center gap-1">
+        <svg class="w-3 h-3 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Hover or tap any team logo for stadium, market, and full season schedule
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Below-Map Section: Team Details + Schedule Card & Standings Card -->
+  <section class="max-w-[1400px] w-full mx-auto px-4 py-6 flex flex-col gap-6">
+    
+    <!-- Team Hover / Selection Card (Placed below the map so it never obscures the map) -->
+    <div id="team-info-wrapper" class="w-full flex justify-center">
+      <!-- Empty state prompt when no team is hovered or pinned -->
+      <div id="hover-card-empty" class="w-full max-w-6xl bg-white/70 border border-dashed border-slate-300 rounded-2xl px-6 py-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+        Hover over or click any team logo on the map (or any row in the standings) to view franchise details and the team's full season schedule & scores here.
+      </div>
+
+      <!-- Active Team Card with Schedule -->
+      <div id="hover-card" class="hidden w-full max-w-6xl bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-md transition-all duration-150">
+        <!-- Top Row: Team Identity & Market Info -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-3.5">
+            <div id="card-logo-container" class="w-14 h-14 rounded-xl bg-slate-50 p-1.5 flex items-center justify-center flex-shrink-0 border border-slate-200">
+              <img id="card-logo" src="" alt="" class="w-11 h-11 object-contain">
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 id="card-team-name" class="font-bold text-slate-900 text-lg leading-tight"></h3>
+                <span id="card-record-badge" class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 font-mono"></span>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span id="card-conf-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></span>
+                <span id="card-division-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></span>
+                <span id="card-coords" class="text-[11px] text-slate-400 font-mono ml-1"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 lg:pt-0 text-xs">
+            <div class="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+              <span class="text-slate-400 text-[10px] uppercase font-semibold tracking-wider block">Metropolitan Area</span>
+              <span id="card-metro" class="text-slate-800 font-semibold mt-0.5 block"></span>
+            </div>
+            <div class="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+              <span class="text-slate-400 text-[10px] uppercase font-semibold tracking-wider block">Metro Population</span>
+              <span id="card-population" class="text-slate-800 font-semibold mt-0.5 block"></span>
+            </div>
+            <div class="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+              <span class="text-slate-400 text-[10px] uppercase font-semibold tracking-wider block">Home Stadium</span>
+              <span id="card-stadium" class="text-slate-800 font-semibold mt-0.5 block"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Team Schedule & Past Game Scores -->
+        <div class="pt-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+              <span>2026 Regular Season Schedule & Results</span>
+              <span id="schedule-status-badge" class="text-[10px] font-normal text-slate-400 lowercase"></span>
+            </h4>
+            <div class="flex items-center gap-3 text-[11px] text-slate-500">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Win</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Loss</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Tie / Live</span>
+            </div>
+          </div>
+
+          <div id="card-schedule-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-2">
+            <!-- Dynamically populated with 18 weeks of games/scores -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standings Container (League / Conference / Division) -->
+    <div id="standings-container" class="flex flex-wrap justify-center gap-6">
+      <!-- Dynamically populated via renderStandings() -->
+    </div>
+
+  </section>
+
+  <script>
+    /**
+     * All 32 NFL Teams with Live 2026 NFL Season Standings
+     */
+    const NFL_TEAMS = [
+      // ================= NFC WEST =================
+      {
+        id: "sf",
+        name: "San Francisco 49ers",
+        shortName: "49ers",
+        conference: "NFC",
+        division: "West",
+        metro: "San Francisco Bay Area, CA",
+        population: "4,623,264",
+        stadium: "Levi's Stadium (Santa Clara, CA)",
+        lon: -122.4194,
+        lat: 37.7749,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 5, losses: 0, ties: 0, divRec: "2-0", confRec: "4-0", pf: 154, pa: 93, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png"
+      },
+      {
+        id: "sea",
+        name: "Seattle Seahawks",
+        shortName: "Seahawks",
+        conference: "NFC",
+        division: "West",
+        metro: "Seattle Metropolitan Area (Puget Sound), WA",
+        population: "4,034,248",
+        stadium: "Lumen Field (Seattle, WA)",
+        lon: -122.3321,
+        lat: 47.6062,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 3, ties: 0, divRec: "0-2", confRec: "1-2", pf: 148, pa: 122, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png"
+      },
+      {
+        id: "ari",
+        name: "Arizona Cardinals",
+        shortName: "Cardinals",
+        conference: "NFC",
+        division: "West",
+        metro: "Phoenix Metropolitan Area, AZ",
+        population: "4,845,832",
+        stadium: "State Farm Stadium (Glendale, AZ)",
+        lon: -112.0740,
+        lat: 33.4484,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "1-1", confRec: "2-2", pf: 126, pa: 178, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png"
+      },
+      {
+        id: "lar",
+        name: "Los Angeles Rams",
+        shortName: "Rams",
+        conference: "NFC",
+        division: "West",
+        metro: "Greater Los Angeles, CA",
+        population: "12,872,322",
+        stadium: "SoFi Stadium (Inglewood, CA)",
+        lon: -118.2437,
+        lat: 34.0522,
+        offsetX: -12,
+        offsetY: -9,
+        wins: 2, losses: 4, ties: 0, divRec: "1-1", confRec: "1-4", pf: 135, pa: 138, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png"
+      },
+
+      // ================= NFC NORTH =================
+      {
+        id: "min",
+        name: "Minnesota Vikings",
+        shortName: "Vikings",
+        conference: "NFC",
+        division: "North",
+        metro: "Minneapolis–Saint Paul (Twin Cities), MN",
+        population: "3,690,261",
+        stadium: "U.S. Bank Stadium (Minneapolis, MN)",
+        lon: -93.2650,
+        lat: 44.9778,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 5, losses: 0, ties: 0, divRec: "1-0", confRec: "3-0", pf: 109, pa: 64, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/min.png"
+      },
+      {
+        id: "chi",
+        name: "Chicago Bears",
+        shortName: "Bears",
+        conference: "NFC",
+        division: "North",
+        metro: "Chicago Metropolitan Area (Chicagoland), IL",
+        population: "9,449,351",
+        stadium: "Soldier Field (Chicago, IL)",
+        lon: -87.6298,
+        lat: 41.8781,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "0-0", confRec: "2-0", pf: 150, pa: 119, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
+      },
+      {
+        id: "gb",
+        name: "Green Bay Packers",
+        shortName: "Packers",
+        conference: "NFC",
+        division: "North",
+        metro: "Green Bay Metropolitan Area, WI",
+        population: "328,268",
+        stadium: "Lambeau Field (Green Bay, WI)",
+        lon: -88.0198,
+        lat: 44.5192,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 2, ties: 0, divRec: "0-1", confRec: "2-2", pf: 104, pa: 112, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png"
+      },
+      {
+        id: "det",
+        name: "Detroit Lions",
+        shortName: "Lions",
+        conference: "NFC",
+        division: "North",
+        metro: "Metro Detroit, MI",
+        population: "4,392,041",
+        stadium: "Ford Field (Detroit, MI)",
+        lon: -83.0458,
+        lat: 42.3314,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 2, ties: 0, divRec: "0-0", confRec: "3-1", pf: 164, pa: 148, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
+      },
+
+      // ================= NFC SOUTH =================
+      {
+        id: "car",
+        name: "Carolina Panthers",
+        shortName: "Panthers",
+        conference: "NFC",
+        division: "South",
+        metro: "Charlotte Metropolitan Area, NC/SC",
+        population: "2,756,069",
+        stadium: "Bank of America Stadium (Charlotte, NC)",
+        lon: -80.8431,
+        lat: 35.2271,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 2, ties: 0, divRec: "1-0", confRec: "2-1", pf: 146, pa: 123, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/car.png"
+      },
+      {
+        id: "atl",
+        name: "Atlanta Falcons",
+        shortName: "Falcons",
+        conference: "NFC",
+        division: "South",
+        metro: "Metro Atlanta, GA",
+        population: "6,222,106",
+        stadium: "Mercedes-Benz Stadium (Atlanta, GA)",
+        lon: -84.3880,
+        lat: 33.7490,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "2-1", confRec: "2-2", pf: 142, pa: 153, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
+      },
+      {
+        id: "no",
+        name: "New Orleans Saints",
+        shortName: "Saints",
+        conference: "NFC",
+        division: "South",
+        metro: "Greater New Orleans, LA",
+        population: "1,272,258",
+        stadium: "Caesars Superdome (New Orleans, LA)",
+        lon: -90.0715,
+        lat: 29.9511,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "0-2", confRec: "2-3", pf: 152, pa: 178, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/no.png"
+      },
+      {
+        id: "tb",
+        name: "Tampa Bay Buccaneers",
+        shortName: "Buccaneers",
+        conference: "NFC",
+        division: "South",
+        metro: "Tampa Bay Area, FL",
+        population: "3,290,730",
+        stadium: "Raymond James Stadium (Tampa, FL)",
+        lon: -82.4572,
+        lat: 27.9506,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 1, losses: 5, ties: 0, divRec: "1-1", confRec: "1-3", pf: 119, pa: 138, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
+      },
+
+      // ================= NFC EAST =================
+      {
+        id: "nyg",
+        name: "New York Giants",
+        shortName: "Giants",
+        conference: "NFC",
+        division: "East",
+        metro: "New York City Metropolitan Area, NY/NJ",
+        population: "19,571,216",
+        stadium: "MetLife Stadium (East Rutherford, NJ)",
+        lon: -74.0060,
+        lat: 40.7128,
+        offsetX: -12,
+        offsetY: -10,
+        wins: 3, losses: 2, ties: 1, divRec: "1-1", confRec: "2-2-1", pf: 136, pa: 140, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png"
+      },
+      {
+        id: "dal",
+        name: "Dallas Cowboys",
+        shortName: "Cowboys",
+        conference: "NFC",
+        division: "East",
+        metro: "Dallas–Fort Worth Metroplex, TX",
+        population: "7,943,650",
+        stadium: "AT&T Stadium (Arlington, TX)",
+        lon: -96.7970,
+        lat: 32.7767,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 3, ties: 0, divRec: "1-0", confRec: "1-2", pf: 138, pa: 136, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png"
+      },
+      {
+        id: "phi",
+        name: "Philadelphia Eagles",
+        shortName: "Eagles",
+        conference: "NFC",
+        division: "East",
+        metro: "Philadelphia Metropolitan Area, PA",
+        population: "6,245,051",
+        stadium: "Lincoln Financial Field (Philadelphia, PA)",
+        lon: -75.1652,
+        lat: 39.9526,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "0-1", confRec: "2-3", pf: 106, pa: 137, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png"
+      },
+      {
+        id: "wsh",
+        name: "Washington Commanders",
+        shortName: "Commanders",
+        conference: "NFC",
+        division: "East",
+        metro: "Washington Metropolitan Area (DMV), DC/MD/VA",
+        population: "6,304,975",
+        stadium: "Northwest Stadium (Landover, MD)",
+        lon: -77.0369,
+        lat: 38.9072,
+        offsetX: -3,
+        offsetY: 4,
+        wins: 1, losses: 3, ties: 1, divRec: "0-0", confRec: "0-2-1", pf: 115, pa: 149, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png"
+      },
+
+      // ================= AFC WEST =================
+      {
+        id: "kc",
+        name: "Kansas City Chiefs",
+        shortName: "Chiefs",
+        conference: "AFC",
+        division: "West",
+        metro: "Kansas City Metropolitan Area, MO/KS",
+        population: "2,192,294",
+        stadium: "GEHA Field at Arrowhead Stadium (Kansas City, MO)",
+        lon: -94.5786,
+        lat: 39.0997,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 5, losses: 0, ties: 0, divRec: "1-0", confRec: "4-0", pf: 140, pa: 83, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
+      },
+      {
+        id: "den",
+        name: "Denver Broncos",
+        shortName: "Broncos",
+        conference: "AFC",
+        division: "West",
+        metro: "Denver Metropolitan Area (Front Range), CO",
+        population: "2,963,821",
+        stadium: "Empower Field at Mile High (Denver, CO)",
+        lon: -104.9903,
+        lat: 39.7392,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "1-0", confRec: "2-2", pf: 114, pa: 125, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/den.png"
+      },
+      {
+        id: "lv",
+        name: "Las Vegas Raiders",
+        shortName: "Raiders",
+        conference: "AFC",
+        division: "West",
+        metro: "Las Vegas Valley, NV",
+        population: "2,265,461",
+        stadium: "Allegiant Stadium (Paradise, NV)",
+        lon: -115.1398,
+        lat: 36.1699,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 3, ties: 0, divRec: "0-1", confRec: "2-2", pf: 162, pa: 162, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png"
+      },
+      {
+        id: "lac",
+        name: "Los Angeles Chargers",
+        shortName: "Chargers",
+        conference: "AFC",
+        division: "West",
+        metro: "Greater Los Angeles, CA",
+        population: "12,872,322",
+        stadium: "SoFi Stadium (Inglewood, CA)",
+        lon: -118.2437,
+        lat: 34.0522,
+        offsetX: 12,
+        offsetY: 9,
+        wins: 0, losses: 6, ties: 0, divRec: "0-1", confRec: "0-3", pf: 90, pa: 151, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
+      },
+
+      // ================= AFC NORTH =================
+      {
+        id: "cle",
+        name: "Cleveland Browns",
+        shortName: "Browns",
+        conference: "AFC",
+        division: "North",
+        metro: "Greater Cleveland, OH",
+        population: "2,088,251",
+        stadium: "Huntington Bank Field (Cleveland, OH)",
+        lon: -81.6944,
+        lat: 41.4993,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "1-0", confRec: "3-1", pf: 106, pa: 122, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png"
+      },
+      {
+        id: "pit",
+        name: "Pittsburgh Steelers",
+        shortName: "Steelers",
+        conference: "AFC",
+        division: "North",
+        metro: "Pittsburgh Metropolitan Area, PA",
+        population: "2,370,930",
+        stadium: "Acrisure Stadium (Pittsburgh, PA)",
+        lon: -79.9959,
+        lat: 40.4406,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "0-1", confRec: "3-1", pf: 137, pa: 128, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png"
+      },
+      {
+        id: "bal",
+        name: "Baltimore Ravens",
+        shortName: "Ravens",
+        conference: "AFC",
+        division: "North",
+        metro: "Baltimore Metropolitan Area, MD",
+        population: "2,844,510",
+        stadium: "M&T Bank Stadium (Baltimore, MD)",
+        lon: -76.6122,
+        lat: 39.2904,
+        offsetX: 5,
+        offsetY: -4,
+        isSmallHotspot: true,
+        wins: 4, losses: 2, ties: 0, divRec: "0-1", confRec: "2-2", pf: 156, pa: 132, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
+      },
+      {
+        id: "cin",
+        name: "Cincinnati Bengals",
+        shortName: "Bengals",
+        conference: "AFC",
+        division: "North",
+        metro: "Cincinnati Metropolitan Area (Tri-State), OH/KY/IN",
+        population: "2,256,884",
+        stadium: "Paycor Stadium (Cincinnati, OH)",
+        lon: -84.5120,
+        lat: 39.1031,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 3, losses: 2, ties: 0, divRec: "1-0", confRec: "2-1", pf: 128, pa: 109, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
+      },
+
+      // ================= AFC SOUTH =================
+      {
+        id: "jax",
+        name: "Jacksonville Jaguars",
+        shortName: "Jaguars",
+        conference: "AFC",
+        division: "South",
+        metro: "Jacksonville Metropolitan Area (First Coast), FL",
+        population: "1,605,848",
+        stadium: "EverBank Stadium (Jacksonville, FL)",
+        lon: -81.6557,
+        lat: 30.3322,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "1-0", confRec: "3-1", pf: 154, pa: 104, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
+      },
+      {
+        id: "ind",
+        name: "Indianapolis Colts",
+        shortName: "Colts",
+        conference: "AFC",
+        division: "South",
+        metro: "Indianapolis Metropolitan Area, IN",
+        population: "2,111,040",
+        stadium: "Lucas Oil Stadium (Indianapolis, IN)",
+        lon: -86.1581,
+        lat: 39.7684,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "0-2", confRec: "1-3", pf: 144, pa: 164, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
+      },
+      {
+        id: "hou",
+        name: "Houston Texans",
+        shortName: "Texans",
+        conference: "AFC",
+        division: "South",
+        metro: "Greater Houston, TX",
+        population: "7,340,118",
+        stadium: "NRG Stadium (Houston, TX)",
+        lon: -95.3698,
+        lat: 29.7604,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 2, losses: 4, ties: 0, divRec: "1-0", confRec: "2-1", pf: 144, pa: 143, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
+      },
+      {
+        id: "ten",
+        name: "Tennessee Titans",
+        shortName: "Titans",
+        conference: "AFC",
+        division: "South",
+        metro: "Nashville Metropolitan Area, TN",
+        population: "2,046,828",
+        stadium: "Nissan Stadium (Nashville, TN)",
+        lon: -86.7816,
+        lat: 36.1627,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 1, losses: 5, ties: 0, divRec: "1-1", confRec: "1-4", pf: 84, pa: 129, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png"
+      },
+
+      // ================= AFC EAST =================
+      {
+        id: "buf",
+        name: "Buffalo Bills",
+        shortName: "Bills",
+        conference: "AFC",
+        division: "East",
+        metro: "Buffalo–Niagara Falls, NY",
+        population: "1,166,902",
+        stadium: "Highmark Stadium (Orchard Park, NY)",
+        lon: -78.8784,
+        lat: 42.8864,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 5, losses: 1, ties: 0, divRec: "1-1", confRec: "4-1", pf: 197, pa: 171, divRank: 1,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
+      },
+      {
+        id: "ne",
+        name: "New England Patriots",
+        shortName: "Patriots",
+        conference: "AFC",
+        division: "East",
+        metro: "Greater Boston & New England, MA/RI",
+        population: "4,941,632",
+        stadium: "Gillette Stadium (Foxborough, MA)",
+        lon: -71.0589,
+        lat: 42.3601,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 4, losses: 2, ties: 0, divRec: "2-0", confRec: "3-2", pf: 136, pa: 113, divRank: 2,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png"
+      },
+      {
+        id: "nyj",
+        name: "New York Jets",
+        shortName: "Jets",
+        conference: "AFC",
+        division: "East",
+        metro: "New York City Metropolitan Area, NY/NJ",
+        population: "19,571,216",
+        stadium: "MetLife Stadium (East Rutherford, NJ)",
+        lon: -74.0060,
+        lat: 40.7128,
+        offsetX: 12,
+        offsetY: 10,
+        wins: 2, losses: 4, ties: 0, divRec: "0-1", confRec: "1-3", pf: 112, pa: 122, divRank: 3,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png"
+      },
+      {
+        id: "mia",
+        name: "Miami Dolphins",
+        shortName: "Dolphins",
+        conference: "AFC",
+        division: "East",
+        metro: "Miami Metropolitan Area (South Florida), FL",
+        population: "6,138,333",
+        stadium: "Hard Rock Stadium (Miami Gardens, FL)",
+        lon: -80.1918,
+        lat: 25.7617,
+        offsetX: 0,
+        offsetY: 0,
+        wins: 0, losses: 5, ties: 0, divRec: "0-1", confRec: "0-3", pf: 70, pa: 132, divRank: 4,
+        logo: "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png"
+      }
+    ];
+
+    // Cache of team schedules: teamId -> Array of 18 week objects
+    const teamSchedulesCache = {};
+
+    // Embedded fallback Week 5 & 6 results + Week 7 matchups from verified 2026 season data
+    const EMBEDDED_RECENT_GAMES = [
+      // Week 5
+      { week: 5, away: "nyg", home: "wsh", awayScore: 27, homeScore: 27, status: "FINAL" },
+      { week: 5, away: "cle", home: "nyj", awayScore: 12, homeScore: 17, status: "FINAL" },
+      { week: 5, away: "ind", home: "pit", awayScore: 22, homeScore: 34, status: "FINAL" },
+      { week: 5, away: "hou", home: "ten", awayScore: 26, homeScore: 3, status: "FINAL" },
+      { week: 5, away: "min", home: "no", awayScore: 23, homeScore: 13, status: "FINAL" },
+      { week: 5, away: "lv", home: "ne", awayScore: 17, homeScore: 45, status: "FINAL" },
+      { week: 5, away: "cin", home: "mia", awayScore: 31, homeScore: 24, status: "FINAL" },
+      { week: 5, away: "chi", home: "gb", awayScore: 7, homeScore: 31, status: "FINAL" },
+      { week: 5, away: "den", home: "lac", awayScore: 23, homeScore: 17, status: "FINAL" },
+      { week: 5, away: "det", home: "ari", awayScore: 45, homeScore: 21, status: "FINAL" },
+      { week: 5, away: "sf", home: "sea", awayScore: 32, homeScore: 29, status: "FINAL" },
+      { week: 5, away: "bal", home: "atl", awayScore: 30, homeScore: 23, status: "FINAL" },
+      { week: 5, away: "buf", home: "lar", awayScore: 37, homeScore: 34, status: "FINAL" },
+      { week: 5, away: "phi", home: "jax", awayScore: 17, homeScore: 24, status: "FINAL" },
+      // Week 6
+      { week: 6, away: "sea", home: "den", awayScore: 14, homeScore: 17, status: "FINAL" },
+      { week: 6, away: "hou", home: "jax", awayScore: 34, homeScore: 31, status: "FINAL" },
+      { week: 6, away: "nyj", home: "ne", awayScore: 19, homeScore: 26, status: "FINAL" },
+      { week: 6, away: "car", home: "phi", awayScore: 25, homeScore: 14, status: "FINAL" },
+      { week: 6, away: "pit", home: "tb", awayScore: 26, homeScore: 19, status: "FINAL" },
+      { week: 6, away: "bal", home: "cle", awayScore: 10, homeScore: 13, status: "FINAL" },
+      { week: 6, away: "chi", home: "atl", awayScore: 31, homeScore: 23, status: "FINAL" },
+      { week: 6, away: "no", home: "nyg", awayScore: 34, homeScore: 27, status: "FINAL" },
+      { week: 6, away: "ten", home: "ind", awayScore: 26, homeScore: 20, status: "FINAL" },
+      { week: 6, away: "ari", home: "lar", awayScore: 18, homeScore: 16, status: "FINAL" },
+      { week: 6, away: "lac", home: "kc", awayScore: 6, homeScore: 22, status: "FINAL" },
+      { week: 6, away: "buf", home: "lv", awayScore: 33, homeScore: 30, status: "FINAL" },
+      { week: 6, away: "dal", home: "gb", awayScore: 7, homeScore: 20, status: "LIVE", dateStr: "Q3 4:56" },
+      { week: 6, away: "wsh", home: "sf", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Mon 10/19 • 5:15 PM" },
+      // Week 7
+      { week: 7, away: "ne", home: "chi", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Thu 10/22 • 5:15 PM" },
+      { week: 7, away: "pit", home: "no", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 6:30 AM" },
+      { week: 7, away: "tb", home: "car", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "mia", home: "nyj", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "nyg", home: "hou", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "cin", home: "bal", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "cle", home: "ten", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "ind", home: "min", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "sf", home: "atl", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
+      { week: 7, away: "den", home: "ari", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:05 PM" },
+      { week: 7, away: "gb", home: "det", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:25 PM" },
+      { week: 7, away: "lar", home: "lv", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:25 PM" },
+      { week: 7, away: "kc", home: "sea", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 5:20 PM" }
+    ];
+
+    /**
+     * Build fallback schedule for a team if offline or ESPN API doesn't respond
+     */
+    function getFallbackSchedule(teamId) {
+      const weeks = [];
+      for (let w = 1; w <= 18; w++) {
+        const found = EMBEDDED_RECENT_GAMES.find(g => g.week === w && (g.away === teamId || g.home === teamId));
+        if (found) {
+          const isHome = found.home === teamId;
+          const oppId = isHome ? found.away : found.home;
+          const teamScore = isHome ? found.homeScore : found.awayScore;
+          const oppScore = isHome ? found.awayScore : found.homeScore;
+          let outcome = null;
+          if (found.status === "FINAL") {
+            if (teamScore > oppScore) outcome = "W";
+            else if (teamScore < oppScore) outcome = "L";
+            else outcome = "T";
+          }
+          weeks.push({
+            week: w,
+            isBye: false,
+            isHome,
+            oppId,
+            status: found.status,
+            outcome,
+            scoreStr: (teamScore !== null && oppScore !== null) ? `${teamScore}-${oppScore}` : "",
+            dateStr: found.dateStr || "Final"
+          });
+        } else {
+          weeks.push({
+            week: w,
+            isBye: false,
+            isHome: w % 2 === 0,
+            oppId: null,
+            status: w < 5 ? "FINAL" : "UPCOMING",
+            outcome: null,
+            scoreStr: "",
+            dateStr: `Week ${w}`
+          });
+        }
+      }
+      return weeks;
+    }
+
+    /**
+     * Fetch live team schedule (including scores for past games) from ESPN's NFL Schedule API
+     */
+    async function fetchTeamSchedule(teamId) {
+      if (teamSchedulesCache[teamId]) return teamSchedulesCache[teamId];
+
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/schedule`);
+        if (!res.ok) throw new Error("Schedule fetch failed");
+        const data = await res.json();
+        const events = data.events || [];
+        if (!events.length) throw new Error("No schedule events");
+
+        const byWeek = {};
+        events.forEach(ev => {
+          const wk = ev.week?.number;
+          if (!wk || wk < 1 || wk > 18) return;
+          const comp = ev.competitions?.[0];
+          if (!comp) return;
+
+          const competitors = comp.competitors || [];
+          const myComp = competitors.find(c => c.team?.abbreviation?.toLowerCase() === teamId);
+          const oppComp = competitors.find(c => c.team?.abbreviation?.toLowerCase() !== teamId);
+          if (!myComp || !oppComp) return;
+
+          const isHome = myComp.homeAway === "home";
+          const oppId = oppComp.team?.abbreviation?.toLowerCase();
+          const state = comp.status?.type?.state; // "post", "in", "pre"
+          const shortDetail = comp.status?.type?.shortDetail || "";
+
+          const myScore = myComp.score?.displayValue ?? myComp.score;
+          const oppScore = oppComp.score?.displayValue ?? oppComp.score;
+
+          let status = "UPCOMING";
+          let outcome = null;
+          let scoreStr = "";
+
+          if (state === "post") {
+            status = "FINAL";
+            scoreStr = `${myScore}-${oppScore}`;
+            if (myComp.winner === true) outcome = "W";
+            else if (oppComp.winner === true) outcome = "L";
+            else outcome = "T";
+          } else if (state === "in") {
+            status = "LIVE";
+            scoreStr = `${myScore}-${oppScore}`;
+          }
+
+          const d = new Date(ev.date);
+          const dateFormatted = !isNaN(d)
+            ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : shortDetail;
+
+          byWeek[wk] = {
+            week: wk,
+            isBye: false,
+            isHome,
+            oppId,
+            oppName: oppComp.team?.shortDisplayName || oppId?.toUpperCase(),
+            oppLogo: oppComp.team?.logos?.[0]?.href,
+            status,
+            outcome,
+            scoreStr,
+            dateStr: state === "pre" ? shortDetail : dateFormatted
+          };
+        });
+
+        const fullSchedule = [];
+        for (let w = 1; w <= 18; w++) {
+          if (byWeek[w]) {
+            fullSchedule.push(byWeek[w]);
+          } else {
+            fullSchedule.push({
+              week: w,
+              isBye: true
+            });
+          }
+        }
+
+        teamSchedulesCache[teamId] = fullSchedule;
+        return fullSchedule;
+      } catch (err) {
+        const fb = getFallbackSchedule(teamId);
+        teamSchedulesCache[teamId] = fb;
+        return fb;
+      }
+    }
+
+    /**
+     * Render the 18-week schedule grid inside the Team Card
+     */
+    async function renderTeamScheduleInCard(team) {
+      const grid = document.getElementById("card-schedule-grid");
+      const statusBadge = document.getElementById("schedule-status-badge");
+      statusBadge.textContent = "Loading schedule...";
+      grid.innerHTML = "";
+
+      const schedule = await fetchTeamSchedule(team.id);
+      if (currentDisplayedTeamId !== team.id) return;
+      statusBadge.textContent = "";
+
+      schedule.forEach(item => {
+        const cell = document.createElement("div");
+
+        if (item.isBye) {
+          cell.className = "bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-2 flex flex-col justify-between min-h-[74px] opacity-75";
+          cell.innerHTML = `
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-400">
+              <span>WK ${item.week}</span>
+              <span>REST</span>
+            </div>
+            <div class="text-xs font-bold text-slate-400 text-center my-auto">BYE WEEK</div>
+          `;
+          grid.appendChild(cell);
+          return;
+        }
+
+        const oppTeam = NFL_TEAMS.find(t => t.id === item.oppId);
+        const oppLogoSrc = oppTeam ? (logoBase64Cache[oppTeam.id] || oppTeam.logo) : (item.oppLogo || "");
+        const oppLabel = oppTeam ? oppTeam.id.toUpperCase() : (item.oppId ? item.oppId.toUpperCase() : "TBD");
+        const prefix = item.isHome ? "vs" : "@";
+
+        let badgeClass = "bg-slate-100 text-slate-600";
+        let borderClass = "border-slate-200 bg-white";
+
+        if (item.status === "FINAL") {
+          if (item.outcome === "W") {
+            badgeClass = "bg-emerald-600 text-white";
+            borderClass = "border-emerald-200 bg-emerald-50/30";
+          } else if (item.outcome === "L") {
+            badgeClass = "bg-rose-600 text-white";
+            borderClass = "border-rose-200 bg-rose-50/30";
+          } else {
+            badgeClass = "bg-amber-500 text-white";
+            borderClass = "border-amber-200 bg-amber-50/30";
+          }
+        } else if (item.status === "LIVE") {
+          badgeClass = "bg-amber-500 text-white animate-pulse";
+          borderClass = "border-amber-300 bg-amber-50/40";
+        }
+
+        cell.className = `border ${borderClass} rounded-xl p-2 flex flex-col justify-between min-h-[74px] transition hover:shadow-sm`;
+
+        let bottomHtml = "";
+        if (item.status === "FINAL") {
+          bottomHtml = `
+            <div class="flex items-center justify-between mt-1.5 pt-1 border-t border-slate-100">
+              <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${badgeClass}">${item.outcome}</span>
+              <span class="font-mono text-xs font-bold text-slate-900">${item.scoreStr}</span>
+            </div>
+          `;
+        } else if (item.status === "LIVE") {
+          bottomHtml = `
+            <div class="flex items-center justify-between mt-1.5 pt-1 border-t border-amber-100">
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${badgeClass}">LIVE</span>
+              <span class="font-mono text-xs font-bold text-slate-900">${item.scoreStr}</span>
+            </div>
+          `;
+        } else {
+          bottomHtml = `
+            <div class="mt-1.5 pt-1 border-t border-slate-100 text-[10px] text-slate-500 truncate font-medium">
+              ${item.dateStr || `Week ${item.week}`}
+            </div>
+          `;
+        }
+
+        cell.innerHTML = `
+          <div class="flex items-center justify-between text-[10px] font-semibold text-slate-400">
+            <span>WK ${item.week}</span>
+            <span>${item.status === "FINAL" ? item.dateStr : ""}</span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="text-[10px] font-semibold text-slate-400">${prefix}</span>
+            ${oppLogoSrc ? `<img src="${oppLogoSrc}" alt="${oppLabel}" class="w-4 h-4 object-contain flex-shrink-0">` : ""}
+            <span class="text-xs font-bold text-slate-800 truncate">${oppLabel}</span>
+          </div>
+          ${bottomHtml}
+        `;
+
+        grid.appendChild(cell);
+      });
+    }
+
+    /**
+     * Real-time standings sync with ESPN's public NFL API
+     */
+    async function syncLiveESPNStandings() {
+      try {
+        const res = await fetch("https://site.api.espn.com/apis/v2/sports/football/nfl/standings");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.children) return;
+
+        data.children.forEach(conf => {
+          if (!conf.standings || !conf.standings.entries) return;
+          conf.standings.entries.forEach(entry => {
+            const abbr = entry.team?.abbreviation?.toLowerCase();
+            const teamObj = NFL_TEAMS.find(t => t.id === abbr);
+            if (teamObj && entry.stats) {
+              const getStat = (name) => entry.stats.find(s => s.name === name)?.value;
+              const getDisplay = (name, type) => entry.stats.find(s => s.name === name || s.type === type)?.displayValue;
+
+              const w = getStat("wins");
+              const l = getStat("losses");
+              const t = getStat("ties");
+              const pf = getStat("pointsFor");
+              const pa = getStat("pointsAgainst");
+              const divRec = getDisplay("Division", "vsdiv");
+              const confRec = getDisplay("vs. Conf.", "vsconf");
+
+              if (w !== undefined) teamObj.wins = w;
+              if (l !== undefined) teamObj.losses = l;
+              if (t !== undefined) teamObj.ties = t;
+              if (pf !== undefined) teamObj.pf = pf;
+              if (pa !== undefined) teamObj.pa = pa;
+              if (divRec) teamObj.divRec = divRec;
+              if (confRec) teamObj.confRec = confRec;
+            }
+          });
+        });
+        renderStandings();
+      } catch (e) {}
+    }
+
+    const projection = d3.geoAlbersUsa()
+      .scale(1300)
+      .translate([487.5, 305]);
+
+    const pathPreprojected = d3.geoPath(null);
+
+    const svg = d3.select("#nfl-map-svg");
+    const container = d3.select("#map-zoom-container");
+    const zoomBehavior = d3.zoom()
+      .scaleExtent([0.8, 6.0])
+      .on("zoom", (event) => {
+        container.attr("transform", event.transform);
+      });
+
+    svg.call(zoomBehavior);
+
+    let currentConference = "BOTH";
+    let currentDivision = "ALL";
+    let pinnedTeam = null;
+    let currentDisplayedTeamId = null;
+
+    const logoBase64Cache = {};
+
+    async function preloadLogosAsBase64() {
+      const promises = NFL_TEAMS.map(team => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.naturalWidth || 200;
+              canvas.height = img.naturalHeight || 200;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0);
+              const dataUrl = canvas.toDataURL("image/png");
+              logoBase64Cache[team.id] = dataUrl;
+            } catch (err) {
+              logoBase64Cache[team.id] = team.logo;
+            }
+            resolve();
+          };
+          img.onerror = () => {
+            logoBase64Cache[team.id] = team.logo;
+            resolve();
+          };
+          img.src = team.logo;
+        });
+      });
+
+      await Promise.all(promises);
+    }
+
+    const TOPOLOGY_URLS = [
+      "https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json",
+      "https://unpkg.com/us-atlas@3/states-albers-10m.json",
+      "https://raw.githubusercontent.com/topojson/us-atlas/master/states-albers-10m.json"
+    ];
+
+    async function loadTopology() {
+      const [usData] = await Promise.all([
+        (async () => {
+          for (const url of TOPOLOGY_URLS) {
+            try {
+              const res = await fetch(url, { mode: 'cors', cache: 'default' });
+              if (res.ok) return await res.json();
+            } catch (err) {}
+          }
+          return null;
+        })(),
+        preloadLogosAsBase64(),
+        syncLiveESPNStandings()
+      ]);
+
+      if (usData && usData.objects && usData.objects.states) {
+        renderMapFromTopology(usData);
+        renderStandings();
+        hideLoader();
+      } else {
+        alert("Unable to load map data from CDNs. Please check your network connection.");
+      }
+    }
+
+    function renderMapFromTopology(us) {
+      const statesGeo = topojson.feature(us, us.objects.states).features;
+      const statesFillG = d3.select("#states-fill-layer");
+      statesFillG.selectAll("*").remove();
+
+      statesFillG.selectAll("path")
+        .data(statesGeo)
+        .enter()
+        .append("path")
+        .attr("class", "state-feature")
+        .attr("d", pathPreprojected);
+
+      const stateBorders = topojson.mesh(us, us.objects.states, (a, b) => a !== b);
+      d3.select("#state-borders-mesh")
+        .attr("d", pathPreprojected(stateBorders));
+
+      if (us.objects.nation) {
+        const nationBorder = topojson.feature(us, us.objects.nation);
+        d3.select("#nation-border-mesh")
+          .attr("d", pathPreprojected(nationBorder));
+      }
+
+      renderTeamMarkers();
+      renderDivisionButtons();
+      applyFilters();
+    }
+
+    function renderTeamMarkers() {
+      const markersG = d3.select("#teams-marker-layer");
+      markersG.selectAll("*").remove();
+
+      NFL_TEAMS.forEach(team => {
+        const coords = projection([team.lon, team.lat]);
+        if (!coords) return;
+
+        const cx = coords[0] + (team.offsetX || 0);
+        const cy = coords[1] + (team.offsetY || 0);
+        team.screenX = cx;
+        team.screenY = cy;
+
+        // Custom tightened hotspot radius for Ravens so it doesn't conflict with Commanders
+        const isRavens = team.id === "bal";
+        const logoSize = isRavens ? 25 : 30;
+        const halfSize = logoSize / 2;
+        const hitRadius = isRavens ? 10 : 16;
+
+        const node = markersG.append("g")
+          .attr("class", "team-marker")
+          .attr("id", `marker-${team.id}`)
+          .attr("data-conf", team.conference)
+          .attr("data-div", team.division)
+          .attr("transform", `translate(${cx}, ${cy})`);
+
+        node.append("circle")
+          .attr("r", hitRadius)
+          .attr("fill", "transparent")
+          .attr("stroke", "none");
+
+        const dataSrc = logoBase64Cache[team.id] || team.logo;
+
+        node.append("image")
+          .attr("href", dataSrc)
+          .attr("xlink:href", dataSrc)
+          .attr("x", -halfSize)
+          .attr("y", -halfSize)
+          .attr("width", logoSize)
+          .attr("height", logoSize)
+          .attr("preserveAspectRatio", "xMidYMid meet");
+
+        node.on("mouseenter", () => {
+          if (!pinnedTeam) showHoverCard(team);
+        });
+
+        node.on("mouseleave", () => {
+          if (!pinnedTeam) hideHoverCard();
+        });
+
+        node.on("click", (e) => {
+          e.stopPropagation();
+          if (pinnedTeam === team) {
+            pinnedTeam = null;
+            d3.selectAll(".team-marker").classed("selected", false);
+            hideHoverCard();
+          } else {
+            pinnedTeam = team;
+            d3.selectAll(".team-marker").classed("selected", false);
+            node.classed("selected", true);
+            showHoverCard(team);
+          }
+        });
+      });
+    }
+
+    svg.on("click", () => {
+      pinnedTeam = null;
+      d3.selectAll(".team-marker").classed("selected", false);
+      hideHoverCard();
+    });
+
+    const hoverCard = document.getElementById("hover-card");
+    const hoverCardEmpty = document.getElementById("hover-card-empty");
+
+    function formatRecord(team) {
+      return team.ties > 0 ? `${team.wins}-${team.losses}-${team.ties}` : `${team.wins}-${team.losses}`;
+    }
+
+    function getWinPct(team) {
+      const total = team.wins + team.losses + team.ties;
+      return total > 0 ? (team.wins + 0.5 * team.ties) / total : 0;
+    }
+
+    function showHoverCard(team) {
+      currentDisplayedTeamId = team.id;
+      document.getElementById("card-team-name").textContent = team.name;
+      
+      const confBadge = document.getElementById("card-conf-badge");
+      confBadge.textContent = team.conference;
+      confBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${team.conference === 'AFC' ? 'bg-red-600' : 'bg-blue-600'}`;
+
+      const divBadge = document.getElementById("card-division-badge");
+      divBadge.textContent = `${team.conference} ${team.division}`;
+      divBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${team.conference === 'AFC' ? 'bg-red-800' : 'bg-blue-800'}`;
+
+      document.getElementById("card-record-badge").textContent = `${formatRecord(team)} (${team.divRec} DIV)`;
+      
+      document.getElementById("card-logo").src = logoBase64Cache[team.id] || team.logo;
+      document.getElementById("card-metro").textContent = team.metro;
+      document.getElementById("card-population").textContent = team.population;
+      document.getElementById("card-stadium").textContent = team.stadium;
+      document.getElementById("card-coords").textContent = `${team.lat.toFixed(4)}° N, ${Math.abs(team.lon).toFixed(4)}° W`;
+
+      hoverCardEmpty.classList.add("hidden");
+      hoverCard.classList.remove("hidden");
+
+      renderTeamScheduleInCard(team);
+    }
+
+    function hideHoverCard() {
+      currentDisplayedTeamId = null;
+      hoverCard.classList.add("hidden");
+      hoverCardEmpty.classList.remove("hidden");
+    }
+
+    function setConference(conf) {
+      currentConference = conf;
+
+      document.getElementById("conf-both").classList.toggle("active", conf === "BOTH");
+      document.getElementById("conf-afc").classList.toggle("active", conf === "AFC");
+      document.getElementById("conf-nfc").classList.toggle("active", conf === "NFC");
+
+      renderDivisionButtons();
+      applyFilters();
+      renderStandings();
+    }
+
+    function renderDivisionButtons() {
+      const group = document.getElementById("division-filter-group");
+      group.innerHTML = "";
+
+      let labelPrefix = "";
+      let allLabel = "All (32)";
+
+      if (currentConference === "AFC") {
+        labelPrefix = "AFC ";
+        allLabel = "All AFC (16)";
+      } else if (currentConference === "NFC") {
+        labelPrefix = "NFC ";
+        allLabel = "All NFC (16)";
+      }
+
+      const divisions = [
+        { key: "ALL", label: allLabel },
+        { key: "West", label: `${labelPrefix}West` },
+        { key: "North", label: `${labelPrefix}North` },
+        { key: "South", label: `${labelPrefix}South` },
+        { key: "East", label: `${labelPrefix}East` }
+      ];
+
+      divisions.forEach(d => {
+        const btn = document.createElement("button");
+        btn.id = `div-btn-${d.key}`;
+        btn.className = `division-btn px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition ${currentDivision === d.key ? 'active' : ''}`;
+        btn.textContent = d.label;
+        btn.onclick = () => setDivision(d.key);
+        group.appendChild(btn);
+      });
+    }
+
+    function setDivision(divKey) {
+      currentDivision = divKey;
+      document.querySelectorAll(".division-btn").forEach(btn => btn.classList.remove("active"));
+      const activeBtn = document.getElementById(`div-btn-${divKey}`);
+      if (activeBtn) activeBtn.classList.add("active");
+      applyFilters();
+      renderStandings();
+    }
+
+    function applyFilters() {
+      d3.selectAll(".team-marker").each(function() {
+        const item = d3.select(this);
+        const nodeConf = item.attr("data-conf");
+        const nodeDiv = item.attr("data-div");
+
+        const matchConf = (currentConference === "BOTH") || (nodeConf === currentConference);
+        const matchDiv = (currentDivision === "ALL") || (nodeDiv === currentDivision);
+
+        if (matchConf && matchDiv) {
+          item.classed("dimmed", false);
+        } else {
+          item.classed("dimmed", true);
+        }
+      });
+    }
+
+    function zoomMap(factor) {
+      svg.transition().duration(280).call(zoomBehavior.scaleBy, factor);
+    }
+
+    function resetMapView() {
+      pinnedTeam = null;
+      d3.selectAll(".team-marker").classed("selected", false);
+      hideHoverCard();
+      currentDivision = "ALL";
+      setConference("BOTH");
+      svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+    }
+
+    function sortTeamsByStandings(teams) {
+      return [...teams].sort((a, b) => {
+        const pctDiff = getWinPct(b) - getWinPct(a);
+        if (Math.abs(pctDiff) > 0.0001) return pctDiff;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        const diffA = a.pf - a.pa;
+        const diffB = b.pf - b.pa;
+        if (diffB !== diffA) return diffB - diffA;
+        return b.pf - a.pf;
+      });
+    }
+
+    function createStandingsCard(title, headerBgClass, teamsList) {
+      const card = document.createElement("div");
+      card.className = "bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-md w-full max-w-2xl flex flex-col";
+
+      const header = document.createElement("div");
+      header.className = `px-4 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-between text-white ${headerBgClass}`;
+      header.innerHTML = `
+        <span class="text-sm">${title}</span>
+        <div class="flex items-center gap-3 sm:gap-4 text-[11px] opacity-90 font-semibold font-mono">
+          <span class="w-12 text-right">W-L-T</span>
+          <span class="w-10 text-right">PCT</span>
+          <span class="w-12 text-right">DIV</span>
+          <span class="w-12 text-right">CONF</span>
+          <span class="w-8 text-right">PF</span>
+          <span class="w-8 text-right">PA</span>
+        </div>
+      `;
+      card.appendChild(header);
+
+      const list = document.createElement("div");
+      list.className = "divide-y divide-slate-200/80 text-xs";
+
+      teamsList.forEach((team, index) => {
+        const row = document.createElement("div");
+        row.className = "px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer";
+        row.onclick = () => {
+          showHoverCard(team);
+          d3.selectAll(".team-marker").classed("selected", false);
+          d3.select(`#marker-${team.id}`).classed("selected", true);
+          pinnedTeam = team;
+          document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        };
+
+        const logoSrc = logoBase64Cache[team.id] || team.logo;
+        const winPctVal = getWinPct(team);
+        const pctStr = winPctVal === 1 ? "1.000" : winPctVal.toFixed(3).replace(/^0/, '');
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0 pr-2">
+            <span class="text-[11px] font-bold text-slate-400 w-4">${index + 1}</span>
+            <img src="${logoSrc}" alt="${team.name}" class="w-6 h-6 object-contain flex-shrink-0" />
+            <span class="font-semibold text-slate-800 truncate">${team.name}</span>
+          </div>
+          <div class="flex items-center gap-3 sm:gap-4 flex-shrink-0 font-mono text-xs">
+            <span class="w-12 text-right font-bold text-slate-900">${formatRecord(team)}</span>
+            <span class="w-10 text-right text-slate-600">${pctStr}</span>
+            <span class="w-12 text-right text-slate-600">${team.divRec || '-'}</span>
+            <span class="w-12 text-right text-slate-600">${team.confRec || '-'}</span>
+            <span class="w-8 text-right text-slate-500">${team.pf}</span>
+            <span class="w-8 text-right text-slate-500">${team.pa}</span>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      card.appendChild(list);
+      return card;
+    }
+
+    function renderStandings() {
+      const container = document.getElementById("standings-container");
+      container.innerHTML = "";
+
+      if (currentDivision === "ALL") {
+        if (currentConference === "BOTH") {
+          const sortedLeague = sortTeamsByStandings(NFL_TEAMS);
+          container.appendChild(
+            createStandingsCard("NFL League Standings (32 Teams)", "bg-slate-800", sortedLeague)
+          );
+        } else {
+          const confTeams = NFL_TEAMS.filter(t => t.conference === currentConference);
+          const sortedConf = sortTeamsByStandings(confTeams);
+          const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
+          container.appendChild(
+            createStandingsCard(`${currentConference} Conference Standings (16 Teams)`, bgClass, sortedConf)
+          );
+        }
+        return;
+      }
+
+      const targetConferences = currentConference === "BOTH" ? ["AFC", "NFC"] : [currentConference];
+
+      targetConferences.forEach(conf => {
+        const divTeams = sortTeamsByStandings(
+          NFL_TEAMS.filter(t => t.conference === conf && t.division === currentDivision)
+        );
+        const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
+        container.appendChild(
+          createStandingsCard(`${conf} ${currentDivision} Standings`, bgClass, divTeams)
+        );
+      });
+    }
+
+    function exportStandaloneSVG() {
+      const svgElement = document.getElementById("nfl-map-svg");
+      const clone = svgElement.cloneNode(true);
+      
+      const g = clone.querySelector("#map-zoom-container");
+      if (g) g.removeAttribute("transform");
+
+      const style = document.createElement("style");
+      style.textContent = `
+        .state-feature { fill: #ffffff; stroke: none; }
+        .state-borders { fill: none; stroke: #64748b; stroke-width: 0.85; stroke-linejoin: round; stroke-linecap: round; }
+        .nation-border { fill: none; stroke: #1e293b; stroke-width: 1.35; stroke-linejoin: round; stroke-linecap: round; }
+        .team-marker.dimmed { display: none; }
+      `;
+      clone.insertBefore(style, clone.firstChild);
+
+      const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bgRect.setAttribute("width", "975");
+      bgRect.setAttribute("height", "610");
+      bgRect.setAttribute("fill", "#f1f5f9");
+      clone.insertBefore(bgRect, clone.querySelector("#map-zoom-container"));
+
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(clone);
+
+      if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
+        svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!svgString.includes('xmlns:xlink="http://www.w3.org/1999/xlink"')) {
+        svgString = svgString.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+      }
+
+      const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `NFL_Teams_Map_${currentConference}.svg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportPNG() {
+      const scale = 3;
+      const width = 975 * scale;
+      const height = 610 * scale;
+      
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillRect(0, 0, width, height);
+
+      const svgElement = document.getElementById("nfl-map-svg");
+      const clone = svgElement.cloneNode(true);
+      const g = clone.querySelector("#map-zoom-container");
+      if (g) g.removeAttribute("transform");
+
+      const style = document.createElement("style");
+      style.textContent = `
+        .state-feature { fill: #ffffff; }
+        .state-borders { fill: none; stroke: #64748b; stroke-width: 0.85; }
+        .nation-border { fill: none; stroke: #1e293b; stroke-width: 1.35; }
+        .team-marker.dimmed { display: none; }
+      `;
+      clone.insertBefore(style, clone.firstChild);
+
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(clone);
+      const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, width, height);
+        const a = document.createElement("a");
+        a.download = `NFL_Teams_Map_${currentConference}.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    function hideLoader() {
+      const overlay = document.getElementById("loader-overlay");
+      overlay.classList.add("opacity-0", "pointer-events-none");
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadTopology();
+    });
+  </script>
+</body>
+</html>
