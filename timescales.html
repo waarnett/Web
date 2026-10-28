@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Scales Reference</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap"
+      rel="stylesheet">
+
+    <style>
+      :root {
+        --bg: #05080f;
+        --panel: #080e1a;
+        --border: #162236;
+        --accent: #00c8ff;
+        --accent2: #ff6b35;
+        --text: #cdd9e8;
+        --muted: #4a6480;
+        --highlight: #0e1f33;
+        --green: #39d98a;
+        --yellow: #f5c518;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: #000;
+        color: var(--text);
+        font-family: 'Crimson Pro', Georgia, serif;
+        font-size: 15px;
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 2.5rem 2rem 1.4rem;
+        border-bottom: 1px solid rgba(0, 200, 255, .2);
+        display: flex;
+        align-items: baseline;
+        gap: 2rem;
+        flex-wrap: wrap;
+      }
+
+      header h1 {
+        font-family: 'Space Mono', monospace;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        text-shadow: 0 0 18px rgba(0, 200, 255, .5);
+      }
+
+      header .subtitle {
+        font-style: italic;
+        font-size: 1rem;
+        color: var(--muted);
+        font-weight: 300;
+      }
+
+      #master-clock {
+        margin-left: auto;
+        text-align: right;
+        max-width: 380px;
+      }
+
+      .utc-label {
+        font-family: 'Space Mono', monospace;
+        font-size: .65rem;
+        color: var(--muted);
+        letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+
+      #master-clock .utc-val {
+        font-family: 'Space Mono', monospace;
+        font-size: 1.35rem;
+        color: var(--green);
+        letter-spacing: .05em;
+        text-shadow: 0 0 12px rgba(57, 217, 138, .4);
+      }
+
+      .loc-val {
+        font-family: 'Space Mono', monospace;
+        font-size: .8rem;
+        color: #e0b060;
+        white-space: nowrap;
+      }
+
+      .loc-note {
+        color: var(--accent2);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .loc-note:hover {
+        color: #ffa070;
+      }
+
+      #geo-source {
+        font-family: 'Space Mono', monospace;
+        font-size: .62rem;
+        color: #c08060;
+        margin-top: .2rem;
+        line-height: 1.4;
+      }
+
+      .container {
+        padding: 1.5rem 1rem 2rem;
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1050px;
+      }
+
+      thead tr {
+        background: rgba(5, 12, 28, .80);
+        border-bottom: 2px solid var(--accent);
+      }
+
+      thead th {
+        font-family: 'Space Mono', monospace;
+        font-size: .62rem;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        padding: .75rem 1rem;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: background .15s;
+        background: transparent;
+      }
+
+      tbody tr:hover {
+        background: rgba(14, 31, 51, .70);
+      }
+
+      tbody tr.group-earth {
+        border-left: 3px solid #4a9eff;
+      }
+
+      tbody tr.group-atomic {
+        border-left: 3px solid var(--accent);
+      }
+
+      tbody tr.group-relativ {
+        border-left: 3px solid var(--accent2);
+      }
+
+      tbody tr.group-system {
+        border-left: 3px solid var(--green);
+      }
+
+      tbody tr.group-sidereal {
+        border-left: 3px solid var(--yellow);
+      }
+
+      tbody tr.group-astro {
+        border-left: 3px solid #c084fc;
+      }
+
+      td {
+        padding: .65rem 1rem;
+        vertical-align: top;
+      }
+
+      td.abbr {
+        font-family: 'Space Mono', monospace;
+        font-size: .9rem;
+        font-weight: 700;
+        color: #e8f4ff;
+        white-space: nowrap;
+      }
+
+      td.value {
+        font-family: 'Space Mono', monospace;
+        font-size: .78rem;
+        color: var(--green);
+        white-space: nowrap;
+        min-width: 240px;
+      }
+
+      td.name {
+        font-style: italic;
+        font-size: .95rem;
+        color: var(--text);
+        min-width: 12ch;
+      }
+
+      td.units {
+        font-family: 'Space Mono', monospace;
+        font-size: .72rem;
+        color: #7ac0e0;
+        min-width: 10ch;
+      }
+
+      td.epoch {
+        font-family: 'Space Mono', monospace;
+        font-size: .72rem;
+        color: #e0b060;
+        min-width: 12ch;
+      }
+
+      td.desc {
+        font-size: .9rem;
+        color: #8fa8c0;
+        max-width: 280px;
+      }
+
+      td.formula {
+        font-family: 'Space Mono', monospace;
+        font-size: .72rem;
+        color: #b08aff;
+        max-width: 250px;
+        line-height: 1.6;
+      }
+
+      .section-header td {
+        padding: .45rem 1rem;
+        background: #0a0a0a;
+        font-family: 'Space Mono', monospace;
+        font-size: .6rem;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-bottom: none;
+        border-left: none !important;
+      }
+
+      .pulse {
+        animation: pulse 1s ease-in-out;
+      }
+
+      @keyframes pulse {
+        0% {
+          color: #fff;
+          text-shadow: 0 0 8px #fff;
+        }
+
+        100% {
+          color: var(--green);
+          text-shadow: none;
+        }
+      }
+
+      /* ── Location panel (bottom) ── */
+      #location-panel {
+        margin: 0 1rem 2.5rem;
+        padding: 1rem 1.2rem;
+        border: 1px solid var(--border);
+        border-left: 3px solid #e0b060;
+        background: #050a14;
+        max-width: 900px;
+      }
+
+      #location-panel h2 {
+        font-family: 'Space Mono', monospace;
+        font-size: .7rem;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+        color: #e0b060;
+        margin-bottom: .6rem;
+      }
+
+      .loc-current {
+        font-family: 'Space Mono', monospace;
+        font-size: .78rem;
+        color: var(--text);
+        margin-bottom: .7rem;
+      }
+
+      .lon-controls {
+        display: flex;
+        gap: .5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .lon-controls label {
+        font-family: 'Space Mono', monospace;
+        font-size: .65rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+
+      .lon-controls input,
+      .lon-controls button {
+        font-family: 'Space Mono', monospace;
+        font-size: .75rem;
+        background: #0a1424;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: .25rem .5rem;
+      }
+
+      .lon-controls input {
+        width: 14ch;
+      }
+
+      .lon-controls button {
+        cursor: pointer;
+        color: var(--accent);
+      }
+
+      .lon-controls button:hover {
+        border-color: var(--accent);
+      }
+
+      #geo-detail {
+        font-family: 'Space Mono', monospace;
+        font-size: .68rem;
+        color: #c08060;
+        margin-top: .7rem;
+        line-height: 1.5;
+      }
+
+      .hint {
+        font-size: .85rem;
+        color: var(--muted);
+        margin-top: .5rem;
+        font-style: italic;
+      }
+
+      footer {
+        text-align: center;
+        padding: 1rem;
+        color: var(--muted);
+        font-size: .8rem;
+        border-top: 1px solid var(--border);
+        line-height: 1.7;
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <header>
+      <div>
+        <h1>Time Scales Reference</h1>
+        <div class="subtitle">A living table of astronomical and civil time standards —
+          continuous-UTC edition (TAI − UTC frozen at 37 s)</div>
+      </div>
+      <div id="master-clock">
+        <div class="utc-label">UTC Now</div>
+        <div class="utc-val" id="utc-display">—</div>
+        <div class="utc-label" style="margin-top:.4rem">Latitude, Longitude</div>
+        <div class="loc-val" id="latlon-val">—</div>
+        <div id="geo-source"></div>
+      </div>
+    </header>
+
+    <div class="container">
+      <table>
+        <thead>
+          <tr>
+            <th>Abbr</th>
+            <th>Current Value</th>
+            <th>Units</th>
+            <th>Epoch</th>
+            <th>Full Name</th>
+            <th>Description</th>
+            <th>Formula from UTC / TAI</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+      </table>
+    </div>
+
+    <section id="location-panel">
+      <h2>Observer Location</h2>
+      <div class="loc-current" id="loc-current">—</div>
+      <div class="lon-controls">
+        <label for="lat-input">Lat</label>
+        <input id="lat-input" type="text" placeholder="37.461 or 37.461N" aria-label="Latitude">
+        <label for="lon-input">Lon</label>
+        <input id="lon-input" type="text" placeholder="-122.270 or 122.270W" aria-label="Longitude">
+        <button id="lon-set" type="button">Set</button>
+        <button id="geo-retry" type="button">Use location</button>
+      </div>
+      <div id="geo-detail"></div>
+      <div class="hint">Your last choice is remembered. “Set” switches to manual mode: the entry is
+        used every time until you press “Use location”. “Use location” switches to device mode: the
+        device is asked at each start, and the last device fix is kept as a fallback. Longitude is
+        required for manual entry; latitude is optional (displayed only — no row uses it yet).</div>
+    </section>
+
+    <footer>
+      Values update every second. Sidereal and solar times are computed from UT1 = UTC + DUT1 (DUT1
+      is a manually maintained constant).<br>
+      Location: device (Geolocation API) or manual entry, whichever you chose last; failing both,
+      the Emerald Hills default is used for calculations. Equation of time uses Meeus low-precision
+      formulae (~5 s accuracy).<br>
+      <span id="dut1-note"></span>
+    </footer>
+
+    <script>
+      // ══════════════════════════════════════════════════════════════════════════════
+      //  CONSTANTS YOU MAY NEED TO MAINTAIN
+      // ══════════════════════════════════════════════════════════════════════════════
+      // TAI − UTC.  FROZEN.  Last leap second 2016-12-31; IERS Bulletin C 72 announced
+      // none for 2026-12-31; CGPM Resolution 5 (2026) makes UTC continuous from
+      // 2027-05-20 (|UT1−UTC| may grow to 3600 s).
+      const TAI_MINUS_UTC = 37;
+      // DUT1 = UT1 − UTC (s).  No longer bounded by 0.9 s after 2027-05-20.
+      // Update from IERS Bulletin A every few months.  Value below is approximate.
+      const DUT1_S = -0.0518;
+      const DUT1_DATE = '2026-10-28 (unverified — check IERS Bulletin A)';
+      // Fallback location when there is no device fix, no saved fix, and no manual entry.
+      // Emerald Hills, CA (set by Bill).
+      const DEFAULT_LAT = 37.461;
+      const DEFAULT_LON = -122.270;
+      const DEFAULT_LABEL = 'Emerald Hills default';
+      const TT_MINUS_TAI = 32.184;
+      const TT_MINUS_UTC = TAI_MINUS_UTC + TT_MINUS_TAI; // 69.184 s
+      const TAI_MINUS_GPS = 19;
+      const GPS_EPOCH_UTC_MS = Date.UTC(1980, 0, 6, 0, 0, 0, 0);
+      const T0_JD = 2443144.5003725; // 1977-01-01 00:00:32.184 TAI as JD(TT)
+      // ── Location state ───────────────────────────────────────────────────────────
+      // LOC_STATE: 'good' (device fix, saved device fix, or manual),
+      //            'pending' (request in flight),
+      //            'none' (no fix; default used for calculation only)
+      let LAT_DEG = null;
+      let LON_DEG = DEFAULT_LON;
+      let LON_LABEL = DEFAULT_LABEL;
+      let LOC_STATE = 'none';
+      // Storage: JSON {mode:'device'|'manual', lon, lat, t}
+      //   mode records the user's LAST CHOICE; it decides what happens at startup.
+      const LS_KEY = 'timescales.loc';
+      const LS_KEY_OLD = 'timescales.lon'; // very old version: longitude only
+      function fmtLon(lon) {
+        return `${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+      }
+
+      function fmtLat(lat) {
+        return `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}`;
+      }
+
+      function fmtDay(t) {
+        return t ? new Date(t).toISOString().slice(0, 10) : 'date unknown';
+      }
+
+      function setDetail(t) {
+        document.getElementById('geo-detail').textContent = t;
+      }
+
+      function updateLocationDisplay() {
+        const llEl = document.getElementById('latlon-val');
+        const srcEl = document.getElementById('geo-source');
+        const cur = document.getElementById('loc-current');
+        const latTxt = LAT_DEG === null ? 'lat —' : fmtLat(LAT_DEG);
+        if (LOC_STATE === 'good') {
+          llEl.textContent = `${latTxt}, ${fmtLon(LON_DEG)}`;
+          srcEl.textContent = LON_LABEL;
+          cur.textContent = `In use: ${latTxt}, ${fmtLon(LON_DEG)} (${LON_LABEL})`;
+        } else if (LOC_STATE === 'pending') {
+          llEl.textContent = 'requesting…';
+          srcEl.textContent = `calculating with ${fmtLon(LON_DEG)} (${LON_LABEL}) meanwhile`;
+          cur.textContent =
+            `Waiting for device location. Calculating with ${fmtLon(LON_DEG)} (${LON_LABEL}) meanwhile.`;
+        } else {
+          llEl.innerHTML =
+            '<a href="#location-panel" class="loc-note">no location fix — see bottom of page ↓</a>';
+          srcEl.textContent = `calculating with ${fmtLon(LON_DEG)} (${LON_LABEL})`;
+          cur.textContent =
+            `No location fix. Calculating with ${fmtLon(LON_DEG)} (${LON_LABEL}). Enter your position below or retry the device.`;
+        }
+      }
+
+      function applyLocation(lon, lat, source, state) {
+        LON_DEG = lon;
+        LAT_DEG = (lat === undefined) ? null : lat;
+        LON_LABEL = source;
+        LOC_STATE = state;
+        rebuildLocationRows();
+        updateLocationDisplay();
+      }
+
+      function validLon(v) {
+        return typeof v === 'number' && isFinite(v) && v >= -180 && v <= 180;
+      }
+
+      function validLat(v) {
+        return v === null || (typeof v === 'number' && isFinite(v) && v >= -90 && v <= 90);
+      }
+
+      function loadSaved() {
+        try {
+          const j = localStorage.getItem(LS_KEY);
+          if (j !== null) {
+            const o = JSON.parse(j);
+            const lon = Number(o.lon);
+            const lat = (o.lat === null || o.lat === undefined) ? null : Number(o.lat);
+            // Entries written by the previous version have no mode; they were manual.
+            const mode = (o.mode === 'device') ? 'device' : 'manual';
+            if (validLon(lon) && validLat(lat)) return {
+              mode,
+              lon,
+              lat,
+              t: o.t || null
+            };
+          }
+          const v = localStorage.getItem(LS_KEY_OLD);
+          if (v !== null) {
+            const n = parseFloat(v);
+            if (validLon(n)) return {
+              mode: 'manual',
+              lon: n,
+              lat: null,
+              t: null
+            };
+          }
+        } catch (e) {
+          /* storage may be blocked in sandboxed frames */ }
+        return null;
+      }
+
+      function save(mode, lon, lat) {
+        try {
+          localStorage.setItem(LS_KEY, JSON.stringify({
+            mode,
+            lon,
+            lat,
+            t: Date.now()
+          }));
+          localStorage.removeItem(LS_KEY_OLD);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      // Accepts "-122.270", "122.270W", "122.270 W", "122.270°W", "+8.5E"
+      function parseLon(s) {
+        const m = s.trim().match(/^([+-]?\d+(?:\.\d+)?)\s*°?\s*([EWew])?$/);
+        if (!m) return null;
+        let v = parseFloat(m[1]);
+        if (m[2] && m[2].toUpperCase() === 'W') v = -Math.abs(v);
+        if (m[2] && m[2].toUpperCase() === 'E') v = Math.abs(v);
+        return (v >= -180 && v <= 180) ? v : null;
+      }
+      // Accepts "37.461", "37.461N", "33.9 S", "-33.9"
+      function parseLat(s) {
+        const m = s.trim().match(/^([+-]?\d+(?:\.\d+)?)\s*°?\s*([NSns])?$/);
+        if (!m) return null;
+        let v = parseFloat(m[1]);
+        if (m[2] && m[2].toUpperCase() === 'S') v = -Math.abs(v);
+        if (m[2] && m[2].toUpperCase() === 'N') v = Math.abs(v);
+        return (v >= -90 && v <= 90) ? v : null;
+      }
+
+      function geoErrorText(err) {
+        const secure = window.isSecureContext ? 'secure context' : 'NOT a secure context';
+        const proto = location.protocol;
+        switch (err.code) {
+          case 1:
+            return `Location denied (code 1). Check System Settings › Privacy & Security › Location Services › Safari, and Safari › Settings › Websites › Location. Page: ${proto}, ${secure}. Sandboxed previews and file:// pages are often refused silently.`;
+          case 2:
+            return `Location unavailable (code 2): ${err.message || 'no Wi-Fi fix'}.`;
+          case 3:
+            return `Location request timed out (code 3). Wi-Fi location can be slow; try "Use location" again.`;
+          default:
+            return `Location error ${err.code}: ${err.message}`;
+        }
+      }
+      // Ask the device. On success, remember the fix AND that the user's choice is 'device'.
+      function requestGeo() {
+        const saved = loadSaved();
+        const cached = (saved && saved.mode === 'device') ? saved : null;
+        const hadGood = (LOC_STATE === 'good');
+        const prev = {
+          lon: LON_DEG,
+          lat: LAT_DEG,
+          label: LON_LABEL
+        };
+        if (!('geolocation' in navigator)) {
+          setDetail('Geolocation API unavailable in this browser/context.');
+          if (!hadGood) {
+            if (cached) applyLocation(cached.lon, cached.lat,
+              `last device fix (${fmtDay(cached.t)})`, 'good');
+            else applyLocation(DEFAULT_LON, null, DEFAULT_LABEL, 'none');
+          }
+          return;
+        }
+        if (!hadGood) {
+          if (cached) applyLocation(cached.lon, cached.lat, `last device fix (${fmtDay(cached.t)})`,
+            'pending');
+          else applyLocation(DEFAULT_LON, null, DEFAULT_LABEL, 'pending');
+        }
+        setDetail('Requesting device location…');
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const lon = pos.coords.longitude,
+              lat = pos.coords.latitude;
+            const ok = save('device', lon, lat);
+            setDetail(`Device fix, ±${Math.round(pos.coords.accuracy)} m.` +
+              (ok ? ' Device mode remembered for next time.' :
+                ' (Could not save — storage blocked.)'));
+            applyLocation(lon, lat, 'device location', 'good');
+          },
+          err => {
+            if (hadGood) {
+              setDetail(geoErrorText(err) + ` Keeping ${prev.label}.`);
+              applyLocation(prev.lon, prev.lat, prev.label, 'good');
+            } else if (cached) {
+              setDetail(geoErrorText(err) + ` Using last device fix from ${fmtDay(cached.t)}.`);
+              applyLocation(cached.lon, cached.lat, `last device fix (${fmtDay(cached.t)})`,
+                'good');
+            } else {
+              setDetail(geoErrorText(err));
+              applyLocation(DEFAULT_LON, null, DEFAULT_LABEL, 'none');
+            }
+          }, {
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 600000
+          }
+        );
+      }
+      // ── Helpers ───────────────────────────────────────────────────────────────────
+      function pad(n, w = 2) {
+        return String(Math.floor(n)).padStart(w, '0');
+      }
+
+      function isoUTC(d) {
+        return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}` +
+          `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+      }
+
+      function isoScale(ms, label, fracDigits = 0) {
+        const d = new Date(ms);
+        let s = `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}` +
+          `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+        if (fracDigits > 0) s += '.' + pad(d.getUTCMilliseconds(), 3).slice(0, fracDigits);
+        return s + ' ' + label;
+      }
+
+      function jdFromMs(ms) {
+        return 2440587.5 + ms / 86400000;
+      }
+
+      function julianDate(d) {
+        return jdFromMs(d.getTime());
+      }
+
+      function ut1Ms(d) {
+        return d.getTime() + DUT1_S * 1000;
+      }
+
+      function ttMs(d) {
+        return d.getTime() + TT_MINUS_UTC * 1000;
+      }
+      // Equation of time (minutes), Meeus eq. 28.3
+      function equationOfTime(jd) {
+        const T = (jd - 2451545.0) / 36525.0;
+        const L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360;
+        const M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360;
+        const Mrad = M * Math.PI / 180;
+        const e = 0.016708634 - 0.000042037 * T - 0.0000001267 * T * T;
+        const omega = (125.04 - 1934.136 * T) * Math.PI / 180;
+        const eps0 = 23.439291111 - 0.013004167 * T - 0.000000164 * T * T + 0.000000504 * T * T * T;
+        const epsRad = (eps0 + 0.00256 * Math.cos(omega)) * Math.PI / 180;
+        const y = Math.tan(epsRad / 2) ** 2;
+        const L0rad = L0 * Math.PI / 180;
+        const eotRad = y * Math.sin(2 * L0rad) -
+          2 * e * Math.sin(Mrad) +
+          4 * e * y * Math.sin(Mrad) * Math.cos(2 * L0rad) -
+          0.5 * y * y * Math.sin(4 * L0rad) -
+          1.25 * e * e * Math.sin(2 * Mrad);
+        return eotRad * (1440 / (2 * Math.PI));
+      }
+
+      function hmsFromSeconds(s) {
+        s = ((s % 86400) + 86400) % 86400;
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${pad(h)}:${pad(m)}:${pad(Math.floor(sec))}.${Math.floor((sec%1)*10)}`;
+      }
+      // GMST (s) for any instant from JD(UT1) — IAU 1982, full-instant form
+      function gmst(jdUT1) {
+        const T = (jdUT1 - 2451545.0) / 36525.0;
+        const s = 67310.54841 +
+          (876600 * 3600 + 8640184.812866) * T +
+          0.093104 * T * T -
+          6.2e-6 * T * T * T;
+        return ((s % 86400) + 86400) % 86400;
+      }
+
+      function fmtBig(n, decimals = 3) {
+        const [int, frac] = n.toFixed(decimals).split('.');
+        const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
+        return frac !== undefined ? grouped + '.' + frac : grouped;
+      }
+
+      function rebuildLocationRows() {
+        ['lmst', 'solar'].forEach(id => {
+          const el = document.getElementById('val-' + id);
+          if (!el) return;
+          const cells = el.closest('tr').querySelectorAll('td');
+          const note = LOC_STATE === 'good' ? LON_LABEL :
+            LOC_STATE === 'pending' ? `${LON_LABEL} — awaiting device` :
+            `${LON_LABEL} — no location fix`;
+          if (id === 'lmst') {
+            cells[5].textContent =
+              `GMST corrected for observer's longitude. At ${fmtLon(LON_DEG)} (${note}).`;
+            cells[6].innerHTML =
+              `GMST + longitude/15 (hours)<br>= GMST ${LON_DEG>=0?'+':'−'} ${Math.abs(LON_DEG/15).toFixed(5)} h`;
+          }
+          if (id === 'solar') {
+            cells[5].textContent =
+              `True local solar time; 12:00 is solar noon. Based on UT1 (not UTC), longitude and equation of time. Shown for ${fmtLon(LON_DEG)} (${note}).`;
+            cells[6].innerHTML =
+              `UT1_hours + longitude/15 + EoT(min)/60<br>(longitude = ${LON_DEG.toFixed(4)}°)`;
+          }
+        });
+      }
+      // ── Rows ──────────────────────────────────────────────────────────────────────
+      const ROWS = [{
+          section: 'Earth-Rotation Scales'
+        },
+        {
+          id: 'ut1',
+          abbr: 'UT1',
+          group: 'earth',
+          name: 'Universal Time 1',
+          units: 'ISO 8601 calendar datetime',
+          epoch: 'zero = 0001-01-01 00:00:00\n(proleptic Gregorian)',
+          desc: 'Earth\'s actual rotation angle, expressed as time. Irregular. Until 2027-05-20, UTC was kept within 0.9 s of UT1; under continuous UTC the gap may grow to 3600 s, so UT1 must now be computed from published DUT1.',
+          formula: 'UTC + DUT1\n(DUT1 = UT1 − UTC from IERS Bulletin A;\nno longer bounded by 0.9 s)',
+          compute(d) {
+            return isoScale(ut1Ms(d), 'UT1', 1) +
+              `\nDUT1 = ${DUT1_S>=0?'+':''}${(DUT1_S*1000).toFixed(1)} ms`;
+          }
+        },
+        {
+          id: 'utc',
+          abbr: 'UTC',
+          group: 'earth',
+          name: 'Coordinated Universal Time',
+          units: 'ISO 8601 calendar datetime',
+          epoch: 'zero = 0001-01-01 00:00:00\n(proleptic Gregorian)',
+          desc: 'Civil time standard, ticking SI seconds. Leap seconds have ended: the last was 2016-12-31, and CGPM Resolution 5 (2026) makes UTC continuous from 2027-05-20. No longer a sub-second proxy for Earth rotation.',
+          formula: 'TAI − ' + TAI_MINUS_UTC + ' s\n(frozen since 2017-01-01)',
+          compute(d) {
+            return isoUTC(d);
+          }
+        },
+        {
+          section: 'Atomic / Uniform Scales'
+        },
+        {
+          id: 'tai',
+          abbr: 'TAI',
+          group: 'atomic',
+          name: 'International Atomic Time',
+          units: 'ISO 8601 calendar datetime',
+          epoch: 'scale origin = 1958-01-01\n00:00:00 UT',
+          desc: 'Weighted mean of ~450 atomic clocks worldwide. Uniform; no leap seconds. Permanently ' +
+            TAI_MINUS_UTC + ' s ahead of UTC (offset frozen).',
+          formula: 'UTC + ' + TAI_MINUS_UTC + ' s  (constant)',
+          compute(d) {
+            return isoScale(d.getTime() + TAI_MINUS_UTC * 1000, 'TAI');
+          }
+        },
+        {
+          id: 'tt',
+          abbr: 'TT',
+          group: 'atomic',
+          name: 'Terrestrial Time',
+          units: 'ISO 8601 calendar datetime',
+          epoch: 'scale origin = 1977-01-01\n00:00:32.184 TAI',
+          desc: 'Theoretical ideal time on Earth\'s geoid. Independent variable of geocentric ephemerides. Differs from TCG only by a constant rate.',
+          formula: 'TAI + 32.184 s  =  UTC + ' + TT_MINUS_UTC.toFixed(3) + ' s',
+          compute(d) {
+            return isoScale(ttMs(d), 'TT', 3);
+          }
+        },
+        {
+          section: 'Relativistic / Barycentric Scales'
+        },
+        {
+          id: 'tcg',
+          abbr: 'TCG',
+          group: 'relativ',
+          name: 'Geocentric Coordinate Time',
+          units: 'ISO 8601 calendar datetime',
+          epoch: 'TCG = TT at 1977-01-01\n00:00:32.184 TAI (geocenter)',
+          desc: 'Coordinate time at the geocenter, free of Earth\'s gravitational potential. Runs faster than TT by L_G = 6.969290134 × 10⁻¹⁰ (≈ 22 ms/yr).',
+          formula: 'TT + L_G × (JD_TT − 2443144.5003725) × 86400',
+          compute(d) {
+            const LG = 6.969290134e-10;
+            const tt = ttMs(d);
+            const dS = LG * (jdFromMs(tt) - T0_JD) * 86400;
+            return isoScale(tt + dS * 1000, 'TCG', 3) + `\n+${dS.toFixed(3)} s vs TT`;
+          }
+        },
+        {
+          id: 'tdb',
+          abbr: 'TDB',
+          group: 'relativ',
+          name: 'Barycentric Dynamical Time',
+          units: 'ISO 8601 calendar datetime',
+          epoch: '≈ TT (periodic difference only)',
+          desc: 'Linearly rescaled TCB that stays within ~2 ms of TT. Independent variable of JPL DE ephemerides. For most purposes identical to TT.',
+          formula: 'TT + 0.001657 s·sin g + 0.000014 s·sin 2g\n(g = mean anomaly of Earth)',
+          compute(d) {
+            const tt = ttMs(d);
+            const T = (jdFromMs(tt) - 2451545.0) / 36525.0;
+            const g = (357.53 + 35999.050 * T) * Math.PI / 180;
+            const delta = 0.001657 * Math.sin(g) + 0.000014 * Math.sin(2 * g);
+            return isoScale(tt + delta * 1000, 'TDB', 3) +
+              `\n${delta>=0?'+':''}${(delta*1000).toFixed(2)} ms vs TT`;
+          }
+        },
+        {
+          id: 'tcb',
+          abbr: 'TCB',
+          group: 'relativ',
+          name: 'Barycentric Coordinate Time',
+          units: 'seconds offset from TDB',
+          epoch: 'TCB = TDB (≈) at 1977-01-01\n00:00:32.184 TAI (barycenter)',
+          desc: 'Coordinate time at the solar-system barycenter, free of solar-system gravitational potential. Runs faster than TDB by L_B = 1.550519768 × 10⁻⁸ (≈ 0.489 s/yr).',
+          formula: 'TDB + L_B × (JD_TDB − 2443144.5003725) × 86400\n(+ TDB0 = −65.5 µs, omitted)',
+          compute(d) {
+            const LB = 1.550519768e-8;
+            const dS = LB * (jdFromMs(ttMs(d)) - T0_JD) * 86400;
+            return `+${dS.toFixed(3)} s ahead of TDB\n(rate ${(LB*31557600).toFixed(3)} s/yr)`;
+          }
+        },
+        {
+          section: 'System / Platform Clocks'
+        },
+        {
+          id: 'unix',
+          abbr: 'Unix',
+          group: 'system',
+          name: 'Unix / POSIX Time',
+          units: 'seconds (decimal)',
+          epoch: '1970-01-01 00:00:00 UTC',
+          desc: 'Seconds since 1970-01-01 UTC, counting every day as 86 400 s. Past leap seconds were repeated or smeared, so old timestamps near them are ambiguous; with UTC now continuous, no new discontinuities will occur.',
+          formula: '(UTC − 1970-01-01) in s\n= (TAI − 1970-01-01) − ' + TAI_MINUS_UTC +
+            ' s + 8.000082 s\n(the last term = TAI−UTC on 1970-01-01, rubber-second era)',
+          compute(d) {
+            return fmtBig(d.getTime() / 1000, 3) + ' s';
+          }
+        },
+        {
+          id: 'macos',
+          abbr: 'macOS',
+          group: 'system',
+          name: 'macOS CFAbsoluteTime',
+          units: 'seconds (decimal)',
+          epoch: '2001-01-01 00:00:00 UTC',
+          desc: 'Seconds since 2001-01-01 00:00:00 UTC. Used by Apple frameworks (NSDate/Date, Core Data). Negative before epoch. Ignores leap seconds like Unix time.',
+          formula: 'Unix time − 978307200  (31 yr incl. 8 leap days)',
+          compute(d) {
+            return fmtBig(d.getTime() / 1000 - 978307200, 3) + ' s';
+          }
+        },
+        {
+          id: 'win',
+          abbr: 'Windows',
+          group: 'system',
+          name: 'Windows FILETIME',
+          units: '100-ns ticks (integer)',
+          epoch: '1601-01-01 00:00:00 UTC',
+          desc: '100-nanosecond intervals since 1601-01-01 00:00:00 UTC. Used throughout the Win32 API.',
+          formula: '(Unix time + 11644473600) × 10⁷',
+          compute(d) {
+            return fmtBig((d.getTime() / 1000 + 11644473600) * 1e7, 0) + ' ticks';
+          }
+        },
+        {
+          id: 'excel',
+          abbr: 'Excel',
+          group: 'system',
+          name: 'Excel / Lotus Serial Date',
+          units: 'fractional days',
+          epoch: '1899-12-30 00:00:00 (Lotus bug)',
+          desc: 'Fractional days since 1899-12-30 (Lotus 1-2-3 treated 1900 as a leap year; Excel preserves it). Excel uses local time; the value shown here is UTC-based.',
+          formula: 'Unix time / 86400 + 25569.0\n(valid for dates after 1900-03-01)',
+          compute(d) {
+            return fmtBig(d.getTime() / 86400000 + 25569.0, 8);
+          }
+        },
+        {
+          id: 'gps',
+          abbr: 'GPST',
+          group: 'system',
+          name: 'GPS Time',
+          units: 'week + seconds-of-week',
+          epoch: '1980-01-06 00:00:00 UTC',
+          desc: 'Atomic time of the GPS constellation. No leap seconds. Equal to UTC on 1980-01-06; permanently 19 s behind TAI and (now frozen) ' +
+            (TAI_MINUS_UTC - TAI_MINUS_GPS) + ' s ahead of UTC.',
+          formula: 'TAI − 19 s  =  UTC + ' + (TAI_MINUS_UTC - TAI_MINUS_GPS) + ' s',
+          compute(d) {
+            const gpsMs = d.getTime() + (TAI_MINUS_UTC - TAI_MINUS_GPS) * 1000 - GPS_EPOCH_UTC_MS;
+            const W = 7 * 86400 * 1000;
+            const weeks = Math.floor(gpsMs / W);
+            const sow = (gpsMs - weeks * W) / 1000;
+            return `Week ${weeks}, ${fmtBig(sow,3)} s`;
+          }
+        },
+        {
+          section: 'Sidereal Time (driven by UT1)'
+        },
+        {
+          id: 'gmst',
+          abbr: 'GMST',
+          group: 'sidereal',
+          name: 'Greenwich Mean Sidereal Time',
+          units: 'hh:mm:ss (hours of arc)',
+          epoch: 'mean vernal equinox (dynamic)',
+          desc: 'Greenwich hour angle of the mean equinox (ignores nutation). Gains ~1 revolution per year on solar time. Requires UT1, not UTC — an error of 1 s in UT1 gives ~1 s error here.',
+          formula: '67310.54841 + (876600h + 8640184.812866s)·T\n+ 0.093104·T² − 6.2×10⁻⁶·T³  (seconds)\nT = (JD_UT1 − 2451545.0)/36525',
+          compute(d) {
+            return hmsFromSeconds(gmst(jdFromMs(ut1Ms(d)))) + ' (hh:mm:ss)';
+          }
+        },
+        {
+          id: 'lmst',
+          abbr: 'LMST',
+          group: 'sidereal',
+          name: 'Local Mean Sidereal Time',
+          units: 'hh:mm:ss (hours of arc)',
+          epoch: 'mean vernal equinox (dynamic)',
+          desc: 'GMST corrected for observer\'s longitude.',
+          formula: 'GMST + longitude/15 (hours)',
+          compute(d) {
+            return hmsFromSeconds(gmst(jdFromMs(ut1Ms(d))) + LON_DEG * 240) + ' (hh:mm:ss)';
+          }
+        },
+        {
+          section: 'Astronomical Scales'
+        },
+        {
+          id: 'solar',
+          abbr: 'AST',
+          group: 'astro',
+          name: 'Apparent Solar Time',
+          units: 'hh:mm:ss (local solar)',
+          epoch: 'solar noon = 12:00:00',
+          desc: 'True local solar time; 12:00 is solar noon.',
+          formula: 'UT1_hours + longitude/15 + EoT(min)/60',
+          compute(d) {
+            const u = ut1Ms(d);
+            const eot = equationOfTime(jdFromMs(u));
+            const secOfDay = (((u / 1000) % 86400) + 86400) % 86400;
+            return hmsFromSeconds(secOfDay + LON_DEG * 240 + eot * 60) + ' (hh:mm:ss)\n' +
+              `EoT = ${eot>=0?'+':''}${eot.toFixed(2)} min`;
+          }
+        },
+        {
+          id: 'jd',
+          abbr: 'JD',
+          group: 'astro',
+          name: 'Julian Date (UTC)',
+          units: 'fractional days',
+          epoch: 'noon, 1 Jan 4713 BC (Julian)',
+          desc: 'Continuous count of days since noon 1 January 4713 BC (proleptic Julian). Shown on the UTC scale; for ephemerides use JD(TT) = JD(UTC) + 69.184 s/86400.',
+          formula: '2440587.5 + Unix_time / 86400',
+          compute(d) {
+            return fmtBig(julianDate(d), 6) + ' days';
+          }
+        },
+        {
+          id: 'mjd',
+          abbr: 'MJD',
+          group: 'astro',
+          name: 'Modified Julian Date (UTC)',
+          units: 'fractional days',
+          epoch: '1858-11-17 00:00:00 UTC',
+          desc: 'JD − 2400000.5. Midnight-based; avoids the large JD integer.',
+          formula: 'JD − 2400000.5  =  Unix_time/86400 + 40587.0',
+          compute(d) {
+            return fmtBig(julianDate(d) - 2400000.5, 6) + ' days';
+          }
+        },
+      ];
+      // ── Build table ───────────────────────────────────────────────────────────────
+      const tbody = document.getElementById('tbody');
+      const valueEls = {};
+      ROWS.forEach(row => {
+        if (row.section) {
+          const tr = document.createElement('tr');
+          tr.className = 'section-header';
+          tr.innerHTML = `<td colspan="7">${row.section}</td>`;
+          tbody.appendChild(tr);
+          return;
+        }
+        const tr = document.createElement('tr');
+        tr.className = `group-${row.group}`;
+        tr.innerHTML = `
+    <td class="abbr">${row.abbr}</td>
+    <td class="value" id="val-${row.id}">—</td>
+    <td class="units">${row.units}</td>
+    <td class="epoch">${row.epoch.replace(/\n/g,'<br>')}</td>
+    <td class="name">${row.name}</td>
+    <td class="desc">${row.desc}</td>
+    <td class="formula">${row.formula.replace(/\n/g,'<br>')}</td>
+  `;
+        tbody.appendChild(tr);
+        valueEls[row.id] = document.getElementById('val-' + row.id);
+      });
+      document.getElementById('dut1-note').textContent =
+        `DUT1 = ${(DUT1_S*1000).toFixed(1)} ms as of ${DUT1_DATE}. TAI − UTC = ${TAI_MINUS_UTC} s (frozen; continuous UTC from 2027-05-20).`;
+      // ── Location controls & startup (after table exists) ─────────────────────────
+      document.getElementById('lon-set').addEventListener('click', () => {
+        const lon = parseLon(document.getElementById('lon-input').value);
+        if (lon === null) {
+          setDetail('Could not parse longitude. Use e.g. -122.270 or 122.270W (range ±180).');
+          return;
+        }
+        const latStr = document.getElementById('lat-input').value.trim();
+        let lat = null;
+        if (latStr !== '') {
+          lat = parseLat(latStr);
+          if (lat === null) {
+            setDetail(
+              'Could not parse latitude. Use e.g. 37.461 or 37.461N (range ±90), or leave it blank.'
+              );
+            return;
+          }
+        }
+        const ok = save('manual', lon, lat);
+        setDetail(ok ?
+          'Manual location saved; it will be used at each start until you press "Use location".' :
+          'Manual location set (could not save — storage blocked).');
+        applyLocation(lon, lat, 'manual entry', 'good');
+      });
+      ['lat-input', 'lon-input'].forEach(id =>
+        document.getElementById(id).addEventListener('keydown', e => {
+          if (e.key === 'Enter') document.getElementById('lon-set').click();
+        })
+      );
+      document.getElementById('geo-retry').addEventListener('click', requestGeo);
+      // Startup: honour the user's last choice.
+      const saved = loadSaved();
+      if (saved !== null && saved.mode === 'manual') {
+        applyLocation(saved.lon, saved.lat, 'saved manual entry', 'good');
+        document.getElementById('lon-input').value = saved.lon.toFixed(4);
+        if (saved.lat !== null) document.getElementById('lat-input').value = saved.lat.toFixed(4);
+        setDetail(
+        'Using saved manual location. Press "Use location" to switch to device location.');
+      } else {
+        requestGeo(); // device mode, or first run
+      }
+      // ── Tick ─────────────────────────────────────────────────────────────────────
+      function tick() {
+        const now = new Date();
+        document.getElementById('utc-display').textContent = isoUTC(now);
+        ROWS.forEach(row => {
+          if (!row.compute) return;
+          const el = valueEls[row.id];
+          if (!el) return;
+          const val = row.compute(now).replace(/\n/g, '<br>');
+          if (el.innerHTML !== val) {
+            el.innerHTML = val;
+            el.classList.remove('pulse');
+            void el.offsetWidth;
+            el.classList.add('pulse');
+          }
+        });
+      }
+      tick();
+      setInterval(tick, 1000);
+    </script>
+  </body>
+
+</html>
