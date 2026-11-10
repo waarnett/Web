@@ -127,18 +127,8 @@
         <!-- Dynamic Division Filter Group -->
         <div id="division-filter-group" class="bg-slate-100 p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-inner"></div>
 
-        <!-- Zoom, Reset & Exports -->
+        <!-- Exports -->
         <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs shadow-inner">
-          <button onclick="zoomMap(1.3)" title="Zoom In" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition shadow-sm">
-            +
-          </button>
-          <button onclick="zoomMap(0.77)" title="Zoom Out" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition shadow-sm">
-            &minus;
-          </button>
-          <button onclick="resetMapView()" title="Reset Zoom and Selection" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition shadow-sm">
-            Reset
-          </button>
-          <div class="h-4 w-[1px] bg-slate-300 mx-0.5"></div>
           <button onclick="exportStandaloneSVG()" title="Export Photoshop-compatible SVG" class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition flex items-center gap-1.5 shadow-sm">
             <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             SVG
@@ -153,7 +143,7 @@
     </div>
   </header>
 
-  <!-- Main Map Container -->
+  <!-- Main Map Container (Static, no zoom or pan, no projection notes) -->
   <main class="relative w-full h-[650px] bg-slate-100 flex items-center justify-center border-b border-slate-200 overflow-hidden flex-shrink-0">
 
     <!-- Loading Overlay -->
@@ -167,15 +157,15 @@
       </div>
     </div>
 
-    <!-- Interactive SVG Element -->
-    <svg id="nfl-map-svg" viewBox="0 0 975 610" class="w-full h-full cursor-grab active:cursor-grabbing select-none" preserveAspectRatio="xMidYMid meet">
+    <!-- Static SVG Element -->
+    <svg id="nfl-map-svg" viewBox="0 0 975 610" class="w-full h-full select-none" preserveAspectRatio="xMidYMid meet">
       <defs>
         <filter id="map-drop-shadow" x="-3%" y="-3%" width="106%" height="106%">
           <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#64748b" flood-opacity="0.25" />
         </filter>
       </defs>
 
-      <g id="map-zoom-container">
+      <g id="map-static-container">
         <g id="land-shadow-layer" filter="url(#map-drop-shadow)"></g>
         <g id="states-fill-layer"></g>
         <path id="state-borders-mesh" class="state-borders"></path>
@@ -184,31 +174,20 @@
       </g>
     </svg>
 
-    <!-- Lower-left Projection Info Card -->
-    <div class="absolute bottom-5 left-6 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200/90 shadow-md text-xs flex flex-col gap-1.5 z-20 pointer-events-none">
-      <div class="text-[12px] font-semibold text-slate-800">
-        Cartographic Albers Equal-Area Projection (US Atlas 10m)
-      </div>
-      <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-100 flex items-center gap-1">
-        <svg class="w-3 h-3 text-slate-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        Hover or tap any team logo for stadium, market, and full season schedule
-      </div>
-    </div>
-
   </main>
 
-  <!-- Below-Map Section: Team Details + Schedule Card & Standings Card -->
+  <!-- Below-Map Section: Team Details + Interactive Schedule & Standings -->
   <section class="max-w-[1400px] w-full mx-auto px-4 py-6 flex flex-col gap-6">
     
-    <!-- Team Hover / Selection Card (Placed below the map so it never obscures the map) -->
+    <!-- Team Hover / Selection Card -->
     <div id="team-info-wrapper" class="w-full flex justify-center">
-      <!-- Empty state prompt when no team is hovered or pinned -->
+      <!-- Empty state prompt -->
       <div id="hover-card-empty" class="w-full max-w-6xl bg-white/70 border border-dashed border-slate-300 rounded-2xl px-6 py-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-        Hover over or click any team logo on the map (or any row in the standings) to view franchise details and the team's full season schedule & scores here.
+        Hover over or click any team logo on the map (or any row in the standings) to view franchise details and interactive schedule here.
       </div>
 
-      <!-- Active Team Card with Schedule -->
+      <!-- Active Team Card with Clickable Opponent Schedule Tiles -->
       <div id="hover-card" class="hidden w-full max-w-6xl bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-md transition-all duration-150">
         <!-- Top Row: Team Identity & Market Info -->
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -245,14 +224,15 @@
           </div>
         </div>
 
-        <!-- Bottom Section: Team Schedule & Past Game Scores -->
+        <!-- Bottom Section: Interactive Schedule Grid -->
         <div class="pt-4">
-          <div class="flex items-center justify-between mb-2.5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2.5 gap-2">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
               <span>2026 Regular Season Schedule & Results</span>
               <span id="schedule-status-badge" class="text-[10px] font-normal text-slate-400 lowercase"></span>
             </h4>
-            <div class="flex items-center gap-3 text-[11px] text-slate-500">
+            <div class="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+              <span class="text-slate-400 italic mr-1">Click any opponent tile to switch team schedule</span>
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Win</span>
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Loss</span>
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Tie / Live</span>
@@ -260,7 +240,7 @@
           </div>
 
           <div id="card-schedule-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-2">
-            <!-- Dynamically populated with 18 weeks of games/scores -->
+            <!-- Dynamically populated with 18 weeks of interactive schedule tiles -->
           </div>
         </div>
       </div>
@@ -808,12 +788,10 @@
       }
     ];
 
-    // Cache of team schedules: teamId -> Array of 18 week objects
     const teamSchedulesCache = {};
+    const liveGamesByTeam = {};
 
-    // Embedded fallback Week 5 & 6 results + Week 7 matchups from verified 2026 season data
     const EMBEDDED_RECENT_GAMES = [
-      // Week 5
       { week: 5, away: "nyg", home: "wsh", awayScore: 27, homeScore: 27, status: "FINAL" },
       { week: 5, away: "cle", home: "nyj", awayScore: 12, homeScore: 17, status: "FINAL" },
       { week: 5, away: "ind", home: "pit", awayScore: 22, homeScore: 34, status: "FINAL" },
@@ -828,7 +806,6 @@
       { week: 5, away: "bal", home: "atl", awayScore: 30, homeScore: 23, status: "FINAL" },
       { week: 5, away: "buf", home: "lar", awayScore: 37, homeScore: 34, status: "FINAL" },
       { week: 5, away: "phi", home: "jax", awayScore: 17, homeScore: 24, status: "FINAL" },
-      // Week 6
       { week: 6, away: "sea", home: "den", awayScore: 14, homeScore: 17, status: "FINAL" },
       { week: 6, away: "hou", home: "jax", awayScore: 34, homeScore: 31, status: "FINAL" },
       { week: 6, away: "nyj", home: "ne", awayScore: 19, homeScore: 26, status: "FINAL" },
@@ -842,26 +819,73 @@
       { week: 6, away: "lac", home: "kc", awayScore: 6, homeScore: 22, status: "FINAL" },
       { week: 6, away: "buf", home: "lv", awayScore: 33, homeScore: 30, status: "FINAL" },
       { week: 6, away: "dal", home: "gb", awayScore: 7, homeScore: 20, status: "LIVE", dateStr: "Q3 4:56" },
-      { week: 6, away: "wsh", home: "sf", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Mon 10/19 • 5:15 PM" },
-      // Week 7
-      { week: 7, away: "ne", home: "chi", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Thu 10/22 • 5:15 PM" },
-      { week: 7, away: "pit", home: "no", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 6:30 AM" },
-      { week: 7, away: "tb", home: "car", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "mia", home: "nyj", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "nyg", home: "hou", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "cin", home: "bal", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "cle", home: "ten", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "ind", home: "min", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "sf", home: "atl", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 10:00 AM" },
-      { week: 7, away: "den", home: "ari", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:05 PM" },
-      { week: 7, away: "gb", home: "det", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:25 PM" },
-      { week: 7, away: "lar", home: "lv", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 1:25 PM" },
-      { week: 7, away: "kc", home: "sea", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Sun 10/25 • 5:20 PM" }
+      { week: 6, away: "wsh", home: "sf", awayScore: null, homeScore: null, status: "UPCOMING", dateStr: "Mon 10/19 • 5:15 PM" }
     ];
 
-    /**
-     * Build fallback schedule for a team if offline or ESPN API doesn't respond
-     */
+    async function syncLiveScoreboard() {
+      try {
+        const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard");
+        if (!res.ok) return;
+        const data = await res.json();
+        const events = data.events || [];
+        const wk = data.week?.number;
+
+        events.forEach(ev => {
+          const eventWeek = ev.week?.number || wk;
+          const comp = ev.competitions?.[0];
+          if (!comp) return;
+          const state = comp.status?.type?.state;
+          const shortDetail = comp.status?.type?.shortDetail || "";
+          const competitors = comp.competitors || [];
+          if (competitors.length !== 2) return;
+
+          competitors.forEach(myComp => {
+            const oppComp = competitors.find(c => c !== myComp);
+            const myId = myComp.team?.abbreviation?.toLowerCase();
+            const oppId = oppComp?.team?.abbreviation?.toLowerCase();
+            if (!myId || !oppId) return;
+
+            const myScore = myComp.score?.displayValue ?? myComp.score ?? "0";
+            const oppScore = oppComp.score?.displayValue ?? oppComp.score ?? "0";
+
+            if (state === "in") {
+              liveGamesByTeam[myId] = {
+                week: eventWeek,
+                isHome: myComp.homeAway === "home",
+                oppId,
+                scoreStr: `${myScore}-${oppScore}`,
+                clockStr: shortDetail || "IN PROGRESS"
+              };
+            } else {
+              delete liveGamesByTeam[myId];
+            }
+
+            if (teamSchedulesCache[myId] && eventWeek >= 1 && eventWeek <= 18) {
+              const slot = teamSchedulesCache[myId].find(s => s.week === eventWeek);
+              if (slot && !slot.isBye) {
+                if (state === "in") {
+                  slot.status = "LIVE";
+                  slot.scoreStr = `${myScore}-${oppScore}`;
+                  slot.dateStr = shortDetail || "LIVE";
+                } else if (state === "post") {
+                  slot.status = "FINAL";
+                  slot.scoreStr = `${myScore}-${oppScore}`;
+                  if (Number(myScore) > Number(oppScore)) slot.outcome = "W";
+                  else if (Number(myScore) < Number(oppScore)) slot.outcome = "L";
+                  else slot.outcome = "T";
+                }
+              }
+            }
+          });
+        });
+
+        if (currentDisplayedTeamId) {
+          const team = NFL_TEAMS.find(t => t.id === currentDisplayedTeamId);
+          if (team) renderTeamScheduleInCard(team);
+        }
+      } catch (e) {}
+    }
+
     function getFallbackSchedule(teamId) {
       const weeks = [];
       for (let w = 1; w <= 18; w++) {
@@ -903,9 +927,6 @@
       return weeks;
     }
 
-    /**
-     * Fetch live team schedule (including scores for past games) from ESPN's NFL Schedule API
-     */
     async function fetchTeamSchedule(teamId) {
       if (teamSchedulesCache[teamId]) return teamSchedulesCache[teamId];
 
@@ -930,11 +951,11 @@
 
           const isHome = myComp.homeAway === "home";
           const oppId = oppComp.team?.abbreviation?.toLowerCase();
-          const state = comp.status?.type?.state; // "post", "in", "pre"
+          const state = comp.status?.type?.state;
           const shortDetail = comp.status?.type?.shortDetail || "";
 
-          const myScore = myComp.score?.displayValue ?? myComp.score;
-          const oppScore = oppComp.score?.displayValue ?? oppComp.score;
+          const myScore = myComp.score?.displayValue ?? myComp.score ?? 0;
+          const oppScore = oppComp.score?.displayValue ?? oppComp.score ?? 0;
 
           let status = "UPCOMING";
           let outcome = null;
@@ -949,6 +970,12 @@
           } else if (state === "in") {
             status = "LIVE";
             scoreStr = `${myScore}-${oppScore}`;
+          }
+
+          const liveOverride = liveGamesByTeam[teamId];
+          if (liveOverride && liveOverride.week === wk) {
+            status = "LIVE";
+            scoreStr = liveOverride.scoreStr;
           }
 
           const d = new Date(ev.date);
@@ -966,7 +993,9 @@
             status,
             outcome,
             scoreStr,
-            dateStr: state === "pre" ? shortDetail : dateFormatted
+            dateStr: status === "LIVE"
+              ? (liveOverride?.clockStr || shortDetail || "LIVE")
+              : (state === "pre" ? shortDetail : dateFormatted)
           };
         });
 
@@ -993,6 +1022,7 @@
 
     /**
      * Render the 18-week schedule grid inside the Team Card
+     * Clicking any game tile switches the card to the opponent's schedule
      */
     async function renderTeamScheduleInCard(team) {
       const grid = document.getElementById("card-schedule-grid");
@@ -1008,7 +1038,7 @@
         const cell = document.createElement("div");
 
         if (item.isBye) {
-          cell.className = "bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-2 flex flex-col justify-between min-h-[74px] opacity-75";
+          cell.className = "bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-2 flex flex-col justify-between min-h-[74px] opacity-75 select-none";
           cell.innerHTML = `
             <div class="flex items-center justify-between text-[10px] font-bold text-slate-400">
               <span>WK ${item.week}</span>
@@ -1022,29 +1052,38 @@
 
         const oppTeam = NFL_TEAMS.find(t => t.id === item.oppId);
         const oppLogoSrc = oppTeam ? (logoBase64Cache[oppTeam.id] || oppTeam.logo) : (item.oppLogo || "");
-        const oppLabel = oppTeam ? oppTeam.id.toUpperCase() : (item.oppId ? item.oppId.toUpperCase() : "TBD");
+        const oppLabel = oppTeam ? oppTeam.shortName || oppTeam.name : (item.oppId ? item.oppId.toUpperCase() : "TBD");
         const prefix = item.isHome ? "vs" : "@";
 
         let badgeClass = "bg-slate-100 text-slate-600";
-        let borderClass = "border-slate-200 bg-white";
+        let borderClass = "border-slate-200 bg-white hover:border-blue-400 hover:shadow-md cursor-pointer";
 
         if (item.status === "FINAL") {
           if (item.outcome === "W") {
             badgeClass = "bg-emerald-600 text-white";
-            borderClass = "border-emerald-200 bg-emerald-50/30";
+            borderClass = "border-emerald-200 bg-emerald-50/30 hover:border-emerald-400 hover:shadow-md cursor-pointer";
           } else if (item.outcome === "L") {
             badgeClass = "bg-rose-600 text-white";
-            borderClass = "border-rose-200 bg-rose-50/30";
+            borderClass = "border-rose-200 bg-rose-50/30 hover:border-rose-400 hover:shadow-md cursor-pointer";
           } else {
             badgeClass = "bg-amber-500 text-white";
-            borderClass = "border-amber-200 bg-amber-50/30";
+            borderClass = "border-amber-200 bg-amber-50/30 hover:border-amber-400 hover:shadow-md cursor-pointer";
           }
         } else if (item.status === "LIVE") {
           badgeClass = "bg-amber-500 text-white animate-pulse";
-          borderClass = "border-amber-300 bg-amber-50/40";
+          borderClass = "border-amber-400 bg-amber-50/60 shadow-xs hover:border-amber-500 hover:shadow-md cursor-pointer";
         }
 
-        cell.className = `border ${borderClass} rounded-xl p-2 flex flex-col justify-between min-h-[74px] transition hover:shadow-sm`;
+        cell.className = `border ${borderClass} rounded-xl p-2 flex flex-col justify-between min-h-[74px] transition group`;
+        cell.title = oppTeam ? `Switch schedule to ${oppTeam.name}` : `Opponent: ${oppLabel}`;
+
+        // Click handler: switches directly to the opponent's schedule & team details
+        cell.onclick = (e) => {
+          e.stopPropagation();
+          if (oppTeam) {
+            selectAndFocusTeam(oppTeam);
+          }
+        };
 
         let bottomHtml = "";
         if (item.status === "FINAL") {
@@ -1056,9 +1095,9 @@
           `;
         } else if (item.status === "LIVE") {
           bottomHtml = `
-            <div class="flex items-center justify-between mt-1.5 pt-1 border-t border-amber-100">
+            <div class="flex items-center justify-between mt-1.5 pt-1 border-t border-amber-200">
               <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${badgeClass}">LIVE</span>
-              <span class="font-mono text-xs font-bold text-slate-900">${item.scoreStr}</span>
+              <span class="font-mono text-xs font-extrabold text-amber-900">${item.scoreStr}</span>
             </div>
           `;
         } else {
@@ -1069,15 +1108,19 @@
           `;
         }
 
+        const topRightHeader = item.status === "FINAL"
+          ? item.dateStr
+          : (item.status === "LIVE" ? `<span class="text-amber-700 font-bold">${item.dateStr || "LIVE"}</span>` : "");
+
         cell.innerHTML = `
           <div class="flex items-center justify-between text-[10px] font-semibold text-slate-400">
             <span>WK ${item.week}</span>
-            <span>${item.status === "FINAL" ? item.dateStr : ""}</span>
+            <span>${topRightHeader}</span>
           </div>
           <div class="flex items-center gap-1.5 mt-1">
             <span class="text-[10px] font-semibold text-slate-400">${prefix}</span>
-            ${oppLogoSrc ? `<img src="${oppLogoSrc}" alt="${oppLabel}" class="w-4 h-4 object-contain flex-shrink-0">` : ""}
-            <span class="text-xs font-bold text-slate-800 truncate">${oppLabel}</span>
+            ${oppLogoSrc ? `<img src="${oppLogoSrc}" alt="${oppLabel}" class="w-4 h-4 object-contain flex-shrink-0 group-hover:scale-110 transition-transform">` : ""}
+            <span class="text-xs font-bold text-slate-800 truncate group-hover:text-blue-600 transition-colors">${oppLabel}</span>
           </div>
           ${bottomHtml}
         `;
@@ -1086,9 +1129,6 @@
       });
     }
 
-    /**
-     * Real-time standings sync with ESPN's public NFL API
-     */
     async function syncLiveESPNStandings() {
       try {
         const res = await fetch("https://site.api.espn.com/apis/v2/sports/football/nfl/standings");
@@ -1132,16 +1172,6 @@
       .translate([487.5, 305]);
 
     const pathPreprojected = d3.geoPath(null);
-
-    const svg = d3.select("#nfl-map-svg");
-    const container = d3.select("#map-zoom-container");
-    const zoomBehavior = d3.zoom()
-      .scaleExtent([0.8, 6.0])
-      .on("zoom", (event) => {
-        container.attr("transform", event.transform);
-      });
-
-    svg.call(zoomBehavior);
 
     let currentConference = "BOTH";
     let currentDivision = "ALL";
@@ -1198,13 +1228,15 @@
           return null;
         })(),
         preloadLogosAsBase64(),
-        syncLiveESPNStandings()
+        syncLiveESPNStandings(),
+        syncLiveScoreboard()
       ]);
 
       if (usData && usData.objects && usData.objects.states) {
         renderMapFromTopology(usData);
         renderStandings();
         hideLoader();
+        setInterval(syncLiveScoreboard, 30000);
       } else {
         alert("Unable to load map data from CDNs. Please check your network connection.");
       }
@@ -1250,7 +1282,6 @@
         team.screenX = cx;
         team.screenY = cy;
 
-        // Custom tightened hotspot radius for Ravens so it doesn't conflict with Commanders
         const isRavens = team.id === "bal";
         const logoSize = isRavens ? 25 : 30;
         const halfSize = logoSize / 2;
@@ -1294,23 +1325,29 @@
             d3.selectAll(".team-marker").classed("selected", false);
             hideHoverCard();
           } else {
-            pinnedTeam = team;
-            d3.selectAll(".team-marker").classed("selected", false);
-            node.classed("selected", true);
-            showHoverCard(team);
+            selectAndFocusTeam(team);
           }
         });
       });
     }
 
-    svg.on("click", () => {
+    const hoverCard = document.getElementById("hover-card");
+    const hoverCardEmpty = document.getElementById("hover-card-empty");
+
+    // Clicking outside the team card dismisses it
+    document.addEventListener("click", (e) => {
+      if (hoverCard.classList.contains("hidden")) return;
+      if (
+        hoverCard.contains(e.target) ||
+        e.target.closest(".team-marker") ||
+        e.target.closest(".standings-team-row")
+      ) {
+        return;
+      }
       pinnedTeam = null;
       d3.selectAll(".team-marker").classed("selected", false);
       hideHoverCard();
     });
-
-    const hoverCard = document.getElementById("hover-card");
-    const hoverCardEmpty = document.getElementById("hover-card-empty");
 
     function formatRecord(team) {
       return team.ties > 0 ? `${team.wins}-${team.losses}-${team.ties}` : `${team.wins}-${team.losses}`;
@@ -1319,6 +1356,14 @@
     function getWinPct(team) {
       const total = team.wins + team.losses + team.ties;
       return total > 0 ? (team.wins + 0.5 * team.ties) / total : 0;
+    }
+
+    function selectAndFocusTeam(team) {
+      pinnedTeam = team;
+      d3.selectAll(".team-marker").classed("selected", false);
+      d3.select(`#marker-${team.id}`).classed("selected", true);
+      showHoverCard(team);
+      document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     function showHoverCard(team) {
@@ -1333,7 +1378,9 @@
       divBadge.textContent = `${team.conference} ${team.division}`;
       divBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${team.conference === 'AFC' ? 'bg-red-800' : 'bg-blue-800'}`;
 
-      document.getElementById("card-record-badge").textContent = `${formatRecord(team)} (${team.divRec} DIV)`;
+      const liveGame = liveGamesByTeam[team.id];
+      const liveText = liveGame ? ` • LIVE ${liveGame.scoreStr} (${liveGame.clockStr})` : "";
+      document.getElementById("card-record-badge").textContent = `${formatRecord(team)} (${team.divRec} DIV)${liveText}`;
       
       document.getElementById("card-logo").src = logoBase64Cache[team.id] || team.logo;
       document.getElementById("card-metro").textContent = team.metro;
@@ -1424,19 +1471,6 @@
       });
     }
 
-    function zoomMap(factor) {
-      svg.transition().duration(280).call(zoomBehavior.scaleBy, factor);
-    }
-
-    function resetMapView() {
-      pinnedTeam = null;
-      d3.selectAll(".team-marker").classed("selected", false);
-      hideHoverCard();
-      currentDivision = "ALL";
-      setConference("BOTH");
-      svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
-    }
-
     function sortTeamsByStandings(teams) {
       return [...teams].sort((a, b) => {
         const pctDiff = getWinPct(b) - getWinPct(a);
@@ -1473,13 +1507,10 @@
 
       teamsList.forEach((team, index) => {
         const row = document.createElement("div");
-        row.className = "px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer";
-        row.onclick = () => {
-          showHoverCard(team);
-          d3.selectAll(".team-marker").classed("selected", false);
-          d3.select(`#marker-${team.id}`).classed("selected", true);
-          pinnedTeam = team;
-          document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        row.className = "standings-team-row px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer";
+        row.onclick = (e) => {
+          e.stopPropagation();
+          selectAndFocusTeam(team);
         };
 
         const logoSrc = logoBase64Cache[team.id] || team.logo;
@@ -1545,9 +1576,6 @@
     function exportStandaloneSVG() {
       const svgElement = document.getElementById("nfl-map-svg");
       const clone = svgElement.cloneNode(true);
-      
-      const g = clone.querySelector("#map-zoom-container");
-      if (g) g.removeAttribute("transform");
 
       const style = document.createElement("style");
       style.textContent = `
@@ -1562,7 +1590,7 @@
       bgRect.setAttribute("width", "975");
       bgRect.setAttribute("height", "610");
       bgRect.setAttribute("fill", "#f1f5f9");
-      clone.insertBefore(bgRect, clone.querySelector("#map-zoom-container"));
+      clone.insertBefore(bgRect, clone.querySelector("#map-static-container"));
 
       const serializer = new XMLSerializer();
       let svgString = serializer.serializeToString(clone);
@@ -1600,8 +1628,6 @@
 
       const svgElement = document.getElementById("nfl-map-svg");
       const clone = svgElement.cloneNode(true);
-      const g = clone.querySelector("#map-zoom-container");
-      if (g) g.removeAttribute("transform");
 
       const style = document.createElement("style");
       style.textContent = `
