@@ -277,6 +277,14 @@
       flex: none;
     }
 
+    /* grayed out while tracking continuously */
+    .btn.primary.tracking[disabled] {
+      background: #2a3a50;
+      border-color: #2a3a50;
+      color: var(--label);
+      opacity: 1;
+    }
+
     .btn.spinning svg {
       animation: spin .9s linear infinite;
     }
@@ -698,45 +706,114 @@
       }
 
       // ---------- reading the position ----------
-      var pending = false;
+      // Two ways of reading:
+      //  * tracking: for TRACK_SECS after the page opens or comes back into view, the browser streams
+      //    readings continuously. Keeping the satellite receiver running lets it settle on a better
+      //    position than a single reading taken from a cold start.
+      //  * single reading: every Refresh press or auto refresh after that.
+      var TRACK_SECS = 20;
+      // enableHighAccuracy is the only precision setting the browser location interface offers;
+      // true asks for the best available source (normally the satellite receiver) rather than
+      // a quicker, coarser Wi-Fi or cell-tower estimate.
+      var GEO_OPTIONS = {
+        enableHighAccuracy: true,   // ask the device to prefer its satellite (GNSS) receiver
+        maximumAge: 0,              // never accept a cached reading
+        timeout: 20000
+      };
+      var pending = false;    // a single reading is in progress
+      var tracking = false;   // continuous readings are in progress
+      var watchId = null;
+      var trackEnd = 0;
+      var trackTimer = null;
+      var trackGotFix = false;
 
-      function refresh() {
-        if (pending) return;
-
+      function canLocate() {
         if (!('geolocation' in navigator)) {
           setStatus('error', 'Unavailable');
           showMessage('This browser does not support location.');
-          return;
+          return false;
         }
         if (!window.isSecureContext) {
           setStatus('error', 'Unavailable');
           showMessage('Browsers only share location with secure pages. Open this page with an https:// address.');
-          return;
+          return false;
         }
+        return true;
+      }
+
+      function setBusyButton(busy) {
+        $('refresh').disabled = busy;
+        $('refresh').classList.toggle('spinning', busy);
+      }
+
+      function refresh() {
+        if (pending || tracking) return;
+        if (!canLocate()) return;
 
         pending = true;
         setStatus('busy', 'Locating…');
-        $('refresh').disabled = true;
-        $('refresh').classList.add('spinning');
-
-        // enableHighAccuracy is the only precision setting the browser location interface offers;
-        // true asks for the best available source (normally the satellite receiver) rather than
-        // a quicker, coarser Wi-Fi or cell-tower estimate.
-        navigator.geolocation.getCurrentPosition(onFix, onError, {
-          enableHighAccuracy: true,   // ask the device to prefer its satellite (GNSS) receiver
-          maximumAge: 0,              // never accept a cached reading
-          timeout: 20000
-        });
+        setBusyButton(true);
+        navigator.geolocation.getCurrentPosition(onFix, onError, GEO_OPTIONS);
       }
 
       function done() {
         pending = false;
-        $('refresh').disabled = false;
-        $('refresh').classList.remove('spinning');
+        if (!tracking) setBusyButton(false);
       }
 
-      function onFix(pos) {
-        done();
+      function trackStatus() {
+        var left = Math.max(0, Math.ceil((trackEnd - Date.now()) / 1000));
+        setStatus('busy', 'Tracking · ' + left + ' s');
+      }
+
+      function startTracking() {
+        if (tracking || !canLocate()) return;
+        tracking = true;
+        trackGotFix = false;
+        trackEnd = Date.now() + TRACK_SECS * 1000;
+        setBusyButton(true);
+        $('refresh').classList.add('tracking');
+        trackStatus();
+        watchId = navigator.geolocation.watchPosition(onTrackFix, onTrackError,
+          { enableHighAccuracy: true, maximumAge: 0 });   // no per-reading time limit while tracking
+        trackTimer = setInterval(function () {
+          if (Date.now() >= trackEnd) stopTracking(true);
+          else trackStatus();
+        }, 250);
+      }
+
+      // finished: true when the full period ran; false when cut short (page hidden, permission denied)
+      function stopTracking(finished) {
+        if (!tracking) return;
+        tracking = false;
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        clearInterval(trackTimer);
+        trackTimer = null;
+        $('refresh').classList.remove('tracking');
+        if (!pending) setBusyButton(false);
+        if (!finished) return;
+        if (trackGotFix) setStatus('ok', 'Position found');
+        else onError({ code: 3 });
+      }
+
+      function onTrackFix(pos) {
+        trackGotFix = true;
+        showFix(pos);
+        trackStatus();
+      }
+
+      function onTrackError(err) {
+        if (err.code === 1) {    // permission denied: no point continuing
+          stopTracking(false);
+          onError(err);
+        } else if (!trackGotFix) {
+          showError(err);        // keep listening; a later reading clears this message
+          trackStatus();
+        }
+      }
+
+      function showFix(pos) {
         fix = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -748,13 +825,22 @@
           timestamp: pos.timestamp
         };
         showMessage('');
-        setStatus('ok', 'Position found');
         render();
         flash();
       }
 
+      function onFix(pos) {
+        done();
+        showFix(pos);
+        if (!tracking) setStatus('ok', 'Position found');
+      }
+
       function onError(err) {
         done();
+        if (!tracking) showError(err);
+      }
+
+      function showError(err) {
         var text;
         if (err.code === 1) {
           text = 'Location permission was denied. Allow location for this site in your browser settings, then press Refresh.';
@@ -889,11 +975,14 @@
       // ---------- start ----------
       $('refresh').addEventListener('click', refresh);
       setInterval(renderAge, 1000);
+      // Track continuously on opening and on every return to the page (the receiver has likely
+      // gone idle while the page was in the background). Stop if the page is hidden mid-way.
       document.addEventListener('visibilitychange', function () {
-        if (!document.hidden && prefs.auto > 0) refresh();   // catch up after the tab was in the background
+        if (document.hidden) stopTracking(false);
+        else startTracking();
       });
       applyAuto();
-      refresh();
+      startTracking();
     })();
   </script>
 </body>
