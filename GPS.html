@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#05080f">
   <title>GNSS Position</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/gnss-64.png">
+  <link rel="apple-touch-icon" href="icons/gnss-apple-touch.png">
 
   <style>
     :root {
@@ -247,6 +249,17 @@
       font-weight: 500;
       color: var(--label);
       min-height: 1.2em;
+    }
+
+    /* time of fix: if the time zone doesn't fit beside the time, it drops to a second line */
+    #time {
+      white-space: normal;
+      font-size: clamp(.95rem, 4.1vw, 1.5rem);   /* a little smaller than the other cards so "12:48:32 PM PST" fits */
+    }
+
+    .value .nowrap,
+    .value .err {
+      white-space: nowrap;
     }
 
     .value.empty {
@@ -683,11 +696,16 @@
       // value text followed by a smaller "±error" part
       function setWithError(id, main, err) {
         var el = $(id);
-        el.textContent = main;
+        el.textContent = '';
+        var mainSpan = document.createElement('span');
+        mainSpan.className = 'nowrap';
+        mainSpan.textContent = main;
+        el.appendChild(mainSpan);
         if (err) {
           var span = document.createElement('span');
           span.className = 'err';
-          span.textContent = ' ' + err;
+          span.textContent = err;
+          el.appendChild(document.createTextNode(' '));   // outside the spans, so the line can break here
           el.appendChild(span);
         }
         el.classList.remove('empty');
@@ -709,9 +727,21 @@
       function formatTime(ms) {
         var d = new Date(ms);
         if (prefs.time === 'utc') {
-          return pad(d.getUTCHours(), 2) + ':' + pad(d.getUTCMinutes(), 2) + ':' + pad(d.getUTCSeconds(), 2) + ' UTC';
+          return pad(d.getUTCHours(), 2) + ':' + pad(d.getUTCMinutes(), 2) + ':' + pad(d.getUTCSeconds(), 2);
         }
         return d.toLocaleTimeString();
+      }
+
+      // Short name of the time zone in force at that moment, e.g. "PST" or "PDT". Browsers give
+      // letter codes mainly for zones the reader's language commonly abbreviates; elsewhere they
+      // give an offset such as "GMT+1".
+      function zoneName(ms) {
+        if (prefs.time === 'utc') return 'UTC';
+        try {
+          var parts = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(new Date(ms));
+          for (var i = 0; i < parts.length; i++) if (parts[i].type === 'timeZoneName') return parts[i].value;
+        } catch (e) { }
+        return '';
       }
 
       function formatDate(ms) {
@@ -783,7 +813,7 @@
           $('headingSub').textContent = 'Only reported while moving';
         }
 
-        setValue('time', formatTime(fix.timestamp), true);
+        setWithError('time', formatTime(fix.timestamp), zoneName(fix.timestamp));   // zone in the smaller font
         renderAge();
       }
 
