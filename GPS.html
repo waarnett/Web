@@ -133,6 +133,32 @@
       padding: 16px 0;
     }
 
+    /* Latitude and longitude: the coordinate on the left, its two error lines stacked to the right
+       and centered on it. The rows share one set of columns, so both error stacks start at the same
+       place even when one coordinate is wider than the other. */
+    .hero {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      column-gap: 14px;
+    }
+
+    .hero .row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: subgrid;
+      align-items: center;
+    }
+
+    .hero .label {
+      grid-column: 1 / -1;
+    }
+
+    .errs .value.small {
+      width: auto;
+      min-height: 0;
+      white-space: nowrap;
+    }
+
     .row+.row {
       border-top: 1px solid var(--border);
     }
@@ -201,13 +227,7 @@
     }
 
     .value.big {
-      font-size: clamp(1.15rem, 5.6vw, 2.1rem);
-      white-space: normal;   /* let the ± part drop to the next line if the screen is too narrow */
-    }
-
-    .value .coord,
-    .value .err {
-      white-space: nowrap;
+      font-size: clamp(1.1rem, 5.4vw, 2.1rem);
     }
 
     .value.mid {
@@ -465,12 +485,18 @@
       <div class="row">
         <div class="label">Latitude</div>
         <button class="value big empty" id="lat" data-group="coord" title="Click to change format">—</button>
-        <button class="value small" id="latErr" data-group="unit" title="Click to change units"></button>
+        <div class="errs">
+          <button class="value small" id="latAng" data-group="coord" title="Click to change format"></button>
+          <button class="value small" id="latErr" data-group="unit" title="Click to change units"></button>
+        </div>
       </div>
       <div class="row">
         <div class="label">Longitude</div>
         <button class="value big empty" id="lon" data-group="coord" title="Click to change format">—</button>
-        <button class="value small" id="lonErr" data-group="unit" title="Click to change units"></button>
+        <div class="errs">
+          <button class="value small" id="lonAng" data-group="coord" title="Click to change format"></button>
+          <button class="value small" id="lonErr" data-group="unit" title="Click to change units"></button>
+        </div>
       </div>
     </section>
 
@@ -657,11 +683,7 @@
       // value text followed by a smaller "±error" part
       function setWithError(id, main, err) {
         var el = $(id);
-        el.textContent = '';
-        var mainSpan = document.createElement('span');
-        mainSpan.className = 'coord';
-        mainSpan.textContent = main;
-        el.appendChild(mainSpan);
+        el.textContent = main;
         if (err) {
           var span = document.createElement('span');
           span.className = 'err';
@@ -728,8 +750,10 @@
         if (!fix) return;
         var hasAcc = typeof fix.accuracy === 'number' && isFinite(fix.accuracy) && fix.accuracy >= 0;
         var accText = hasAcc ? '±' + formatLength(fix.accuracy) : '';
-        setWithError('lat', formatCoord(fix.latitude, true), hasAcc ? formatAngleError(fix.accuracy, fix.latitude, true) : null);
-        setWithError('lon', formatCoord(fix.longitude, false), hasAcc ? formatAngleError(fix.accuracy, fix.latitude, false) : null);
+        setValue('lat', formatCoord(fix.latitude, true), true);
+        setValue('lon', formatCoord(fix.longitude, false), true);
+        $('latAng').textContent = hasAcc ? formatAngleError(fix.accuracy, fix.latitude, true) || '' : '';
+        $('lonAng').textContent = hasAcc ? formatAngleError(fix.accuracy, fix.latitude, false) || '' : '';
         $('latErr').textContent = accText;
         $('lonErr').textContent = accText;
 
