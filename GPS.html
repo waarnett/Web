@@ -299,6 +299,10 @@
       color: var(--muted);
     }
 
+    .hint+.hint {
+      margin-top: 4px;
+    }
+
     .message {
       margin-top: 12px;
       padding: 12px 14px;
@@ -487,6 +491,7 @@
     </div>
 
     <p class="hint">Click any value to change its format or units.</p>
+    <p class="hint" id="wakeNote" hidden></p>
   </main>
 
   <dialog id="autoDialog" aria-labelledby="autoTitle">
@@ -714,6 +719,9 @@
         $('refresh').disabled = true;
         $('refresh').classList.add('spinning');
 
+        // enableHighAccuracy is the only precision setting the browser location interface offers;
+        // true asks for the best available source (normally the satellite receiver) rather than
+        // a quicker, coarser Wi-Fi or cell-tower estimate.
         navigator.geolocation.getCurrentPosition(onFix, onError, {
           enableHighAccuracy: true,   // ask the device to prefer its satellite (GNSS) receiver
           maximumAge: 0,              // never accept a cached reading
@@ -841,6 +849,42 @@
         savePrefs();
         render();
       });
+
+      // ---------- keep the screen awake ----------
+      // The Screen Wake Lock interface stops the device dimming and auto-locking while this page is
+      // visible. The browser drops the lock whenever the page is hidden (tab switched, app sent to
+      // the background), so it is requested again each time the page becomes visible.
+      var wakeLock = null;
+      var wakeSupported = 'wakeLock' in navigator;
+
+      function setWakeNote(text) {
+        $('wakeNote').textContent = text || '';
+        $('wakeNote').hidden = !text;
+      }
+
+      function requestWakeLock() {
+        if (!wakeSupported || wakeLock || document.hidden) return;
+        navigator.wakeLock.request('screen').then(function (lock) {
+          wakeLock = lock;
+          setWakeNote('Screen will stay on while this page is open.');
+          lock.addEventListener('release', function () {
+            wakeLock = null;
+            if (!document.hidden) setWakeNote('Screen may turn off: the device released the keep-awake lock.');
+          });
+        }).catch(function () {
+          // some browsers refuse until the person has touched the page; a later tap retries
+          setWakeNote('Screen may turn off: tap the page to keep it awake.');
+        });
+      }
+
+      if (wakeSupported) {
+        document.addEventListener('visibilitychange', requestWakeLock);
+        document.addEventListener('click', requestWakeLock);
+        document.addEventListener('touchend', requestWakeLock);
+        requestWakeLock();
+      } else {
+        setWakeNote('This browser cannot stop the screen from turning off.');
+      }
 
       // ---------- start ----------
       $('refresh').addEventListener('click', refresh);
