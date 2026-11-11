@@ -813,6 +813,21 @@
         }
       }
 
+      // Web pages count time in milliseconds from 1 Jan 1970. Safari on macOS has a long-standing bug
+      // (WebKit bugs 24771 and 186689) where a reading's time is counted from Apple's own starting
+      // date, 1 Jan 2001, so it appears exactly 31 years too early. Readings are requested fresh
+      // (maximumAge 0), so a believable time is within an hour of the device clock.
+      var APPLE_EPOCH_SHIFT = 978307200000;   // milliseconds from 1 Jan 1970 to 1 Jan 2001
+      var PLAUSIBLE_MS = 3600 * 1000;
+
+      function readingTime(ts) {
+        var now = Date.now();
+        if (typeof ts !== 'number' || !isFinite(ts)) return now;
+        if (Math.abs(now - ts) <= PLAUSIBLE_MS) return ts;                                 // correct as reported
+        if (Math.abs(now - (ts + APPLE_EPOCH_SHIFT)) <= PLAUSIBLE_MS) return ts + APPLE_EPOCH_SHIFT;  // Safari's 2001 count
+        return now;   // wrong some other way: use the moment the reading arrived
+      }
+
       function showFix(pos) {
         fix = {
           latitude: pos.coords.latitude,
@@ -822,7 +837,7 @@
           altitudeAccuracy: pos.coords.altitudeAccuracy,
           speed: pos.coords.speed,
           heading: pos.coords.heading,
-          timestamp: pos.timestamp
+          timestamp: readingTime(pos.timestamp)
         };
         showMessage('');
         render();
