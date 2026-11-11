@@ -1,24 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2b2b2b">
   <title>Maps</title>
+
+  <style>
+    :root {
+      --bg: #2b2b2b;
+      --row-hover: #363636;
+      --line: #3d3d3d;
+      --text: #ececec;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;   /* center the table on the page, both ways */
+      padding: 32px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    tr + tr td {
+      border-top: 1px solid var(--line);
+    }
+
+    tr:hover td {
+      background: var(--row-hover);
+    }
+
+    td {
+      padding: 0;
+      vertical-align: middle;
+    }
+
+    td a {
+      display: flex;
+      align-items: center;
+      min-height: 76px;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .icon a {
+      padding: 0 18px 0 14px;
+    }
+
+    .name a {
+      padding-right: 24px;
+      font-size: clamp(1.4rem, 6vw, 1.9rem);
+      font-weight: 600;
+    }
+
+    .name a:hover,
+    .name a:focus-visible {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    .name a:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: -2px;
+    }
+
+    /* each icon sits on a tile in its page's own background color */
+    .tile {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      flex: none;
+    }
+
+    .tile svg {
+      width: 42px;
+      height: 42px;
+    }
+
+    .tile img {
+      width: 44px;
+      height: 44px;
+    }
+  </style>
 </head>
+
 <body>
-  <h2>
-   <a href="../Dialog/index.html">Dialog</a>
-   <br>
-   <br>
-   <a href="NFLMap.html">NFL Map</a>
-   <br>
-   <br>
-   <a href="EuropeMap.html">Europe Map</a>
-   <br>
-   <br>
-   <a href="timescales.html">Time Scales</a>
-   <br>
-   <br>
-   <a href="GPS.html">GNSS Position</a>
-  </h2>
+  <table>
+    <tr>
+      <td class="icon"><a href="../Dialog/index.html" tabindex="-1" aria-hidden="true">
+          <span class="tile" style="background:#edeeea">
+            <img alt="" src="data:image/png;base64,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">
+          </span></a></td>
+      <td class="name"><a href="../Dialog/index.html">Dialog</a></td>
+    </tr>
+    <tr>
+      <td class="icon"><a href="NFLMap.html" tabindex="-1" aria-hidden="true">
+          <span class="tile" style="background:#f1f5f9">
+            <!-- football -->
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <g transform="rotate(-40 16 16)">
+                <ellipse cx="16" cy="16" rx="15" ry="9.5" fill="#7a3e1d" />
+                <path d="M5.5 11v10M26.5 11v10" stroke="#fff" stroke-width="1.3" />
+                <path d="M10.5 16h11M12.5 14.2v3.6M14.5 14.2v3.6M16.5 14.2v3.6M18.5 14.2v3.6M20.5 14.2v3.6"
+                  stroke="#fff" stroke-width="1.2" stroke-linecap="round" />
+              </g>
+            </svg>
+          </span></a></td>
+      <td class="name"><a href="NFLMap.html">NFL Map</a></td>
+    </tr>
+    <tr>
+      <td class="icon"><a href="EuropeMap.html" tabindex="-1" aria-hidden="true">
+          <span class="tile" style="background:#1f3a5f">
+            <!-- ring of twelve stars -->
+            <svg viewBox="0 0 32 32" aria-hidden="true" fill="#ffcc00">
+              <polygon points="16.00,1.50 16.73,3.49 18.85,3.57 17.19,4.89 17.76,6.93 16.00,5.75 14.24,6.93 14.81,4.89 13.15,3.57 15.27,3.49"/><polygon points="21.75,3.04 22.48,5.03 24.60,5.11 22.94,6.43 23.51,8.47 21.75,7.29 19.99,8.47 20.56,6.43 18.90,5.11 21.02,5.03"/><polygon points="25.96,7.25 26.69,9.24 28.81,9.32 27.15,10.64 27.72,12.68 25.96,11.50 24.20,12.68 24.77,10.64 23.11,9.32 25.22,9.24"/><polygon points="27.50,13.00 28.23,14.99 30.35,15.07 28.69,16.39 29.26,18.43 27.50,17.25 25.74,18.43 26.31,16.39 24.65,15.07 26.77,14.99"/><polygon points="25.96,18.75 26.69,20.74 28.81,20.82 27.15,22.14 27.72,24.18 25.96,23.00 24.20,24.18 24.77,22.14 23.11,20.82 25.22,20.74"/><polygon points="21.75,22.96 22.48,24.95 24.60,25.03 22.94,26.35 23.51,28.39 21.75,27.21 19.99,28.39 20.56,26.35 18.90,25.03 21.02,24.95"/><polygon points="16.00,24.50 16.73,26.49 18.85,26.57 17.19,27.89 17.76,29.93 16.00,28.75 14.24,29.93 14.81,27.89 13.15,26.57 15.27,26.49"/><polygon points="10.25,22.96 10.98,24.95 13.10,25.03 11.44,26.35 12.01,28.39 10.25,27.21 8.49,28.39 9.06,26.35 7.40,25.03 9.52,24.95"/><polygon points="6.04,18.75 6.78,20.74 8.89,20.82 7.23,22.14 7.80,24.18 6.04,23.00 4.28,24.18 4.85,22.14 3.19,20.82 5.31,20.74"/><polygon points="4.50,13.00 5.23,14.99 7.35,15.07 5.69,16.39 6.26,18.43 4.50,17.25 2.74,18.43 3.31,16.39 1.65,15.07 3.77,14.99"/><polygon points="6.04,7.25 6.78,9.24 8.89,9.32 7.23,10.64 7.80,12.68 6.04,11.50 4.28,12.68 4.85,10.64 3.19,9.32 5.31,9.24"/><polygon points="10.25,3.04 10.98,5.03 13.10,5.11 11.44,6.43 12.01,8.47 10.25,7.29 8.49,8.47 9.06,6.43 7.40,5.11 9.52,5.03"/>
+            </svg>
+          </span></a></td>
+      <td class="name"><a href="EuropeMap.html">Europe Map</a></td>
+    </tr>
+    <tr>
+      <td class="icon"><a href="timescales.html" tabindex="-1" aria-hidden="true">
+          <span class="tile" style="background:#05080f">
+            <!-- clock -->
+            <svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke-linecap="round">
+              <circle cx="16" cy="16" r="13" stroke="#00c8ff" stroke-width="2" />
+              <path d="M16 4.5v2.5M16 25v2.5M4.5 16h2.5M25 16h2.5" stroke="#00c8ff" stroke-width="1.6" />
+              <path d="M16 16V9.5M16 16l5 3" stroke="#cdd9e8" stroke-width="2.2" />
+              <path d="M16 16l-4.5 6.5" stroke="#ff6b35" stroke-width="1.3" />
+              <circle cx="16" cy="16" r="1.4" fill="#ff6b35" />
+            </svg>
+          </span></a></td>
+      <td class="name"><a href="timescales.html">Time Scales</a></td>
+    </tr>
+    <tr>
+      <td class="icon"><a href="GPS.html" tabindex="-1" aria-hidden="true">
+          <span class="tile" style="background:#05080f">
+            <!-- satellite sending a signal -->
+            <svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="#00c8ff" stroke-linejoin="round">
+              <g transform="rotate(-45 13 13)">
+                <rect x="10" y="10" width="6" height="6" rx="1" fill="#00c8ff" />
+                <rect x="1" y="10.5" width="7" height="5" stroke-width="1.4" />
+                <rect x="18" y="10.5" width="7" height="5" stroke-width="1.4" />
+                <path d="M8 13h2M16 13h2M4.5 10.5v5M21.5 10.5v5" stroke-width="1.2" />
+              </g>
+              <path d="M19.5 25.5a6 6 0 0 0 6-6M19 30a11 11 0 0 0 11-11" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </span></a></td>
+      <td class="name"><a href="GPS.html">GNSS Position</a></td>
+    </tr>
+  </table>
 </body>
+
 </html>
