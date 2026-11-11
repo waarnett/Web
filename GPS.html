@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#05080f">
+  <title>GPS Position</title>
+
+  <style>
+    :root {
+      --bg: #05080f;
+      --bg-glow: #0d2038;
+      --panel: #0a1220;
+      --panel-2: #0d1828;
+      --border: #1a2a42;
+      --accent: #00c8ff;
+      --accent-soft: rgba(0, 200, 255, .14);
+      --text: #e4edf7;
+      --label: #7f97b3;
+      --muted: #56708d;
+      --green: #39d98a;
+      --yellow: #f5c518;
+      --red: #ff6b6b;
+      --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background:
+        radial-gradient(900px 520px at 50% -160px, var(--bg-glow), transparent 70%),
+        var(--bg);
+      background-repeat: no-repeat;
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.4;
+      padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+
+    main {
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* ---------- header ---------- */
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 8px 2px 20px;
+    }
+
+    h1 {
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 0 18px rgba(0, 200, 255, .45);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--panel);
+      font-size: .8rem;
+      color: var(--label);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex: none;
+    }
+
+    .status[data-state="ok"] .dot {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .status[data-state="busy"] .dot {
+      background: var(--yellow);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .status[data-state="error"] .dot {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: .25;
+      }
+    }
+
+    /* ---------- cards ---------- */
+
+    .card {
+      background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+
+    .hero {
+      padding: 6px 20px;
+      box-shadow: 0 0 0 1px rgba(0, 200, 255, .05), 0 18px 40px -24px rgba(0, 200, 255, .35);
+    }
+
+    .row {
+      padding: 16px 0;
+    }
+
+    .row+.row {
+      border-top: 1px solid var(--border);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .tile {
+      padding: 14px 16px 16px;
+      min-width: 0;
+    }
+
+    .label {
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--label);
+    }
+
+    .sub {
+      margin-top: 2px;
+      font-size: .78rem;
+      color: var(--muted);
+      min-height: 1.1em;
+    }
+
+    /* the clickable values */
+    .value {
+      display: block;
+      width: calc(100% + 12px);
+      margin: 2px -6px 0;
+      padding: 2px 6px;
+      border: 0;
+      border-radius: 8px;
+      background: none;
+      color: var(--text);
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s;
+    }
+
+    .value:hover {
+      background: var(--accent-soft);
+    }
+
+    .value:active {
+      color: var(--accent);
+    }
+
+    .value:focus-visible,
+    .btn:focus-visible,
+    .chip input:focus-visible+span,
+    input[type="number"]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .value.big {
+      font-size: clamp(1.3rem, 6.4vw, 2.1rem);
+    }
+
+    .value.mid {
+      font-size: clamp(1.1rem, 5vw, 1.5rem);
+    }
+
+    .value.empty {
+      color: var(--muted);
+    }
+
+    .value.flash {
+      animation: flash .7s ease-out;
+    }
+
+    @keyframes flash {
+      from {
+        color: var(--accent);
+        text-shadow: 0 0 14px rgba(0, 200, 255, .7);
+      }
+    }
+
+    /* ---------- controls ---------- */
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      font: 600 .95rem var(--sans);
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .05s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #03121c;
+    }
+
+    .btn.primary:hover {
+      background: #4bd9ff;
+    }
+
+    .btn[disabled] {
+      opacity: .6;
+      cursor: progress;
+    }
+
+    .btn svg {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+
+    .btn.spinning svg {
+      animation: spin .9s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn b {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .hint {
+      margin-top: 16px;
+      text-align: center;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    .message {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 107, 107, .4);
+      border-radius: 12px;
+      background: rgba(255, 107, 107, .08);
+      color: #ffc9c9;
+      font-size: .88rem;
+    }
+
+    .message[hidden] {
+      display: none;
+    }
+
+    /* ---------- dialog ---------- */
+
+    dialog {
+      width: min(420px, calc(100vw - 32px));
+      margin: auto;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel-2);
+      color: var(--text);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+    }
+
+    dialog::backdrop {
+      background: rgba(2, 5, 10, .7);
+      backdrop-filter: blur(3px);
+    }
+
+    dialog h2 {
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+    }
+
+    dialog p {
+      font-size: .85rem;
+      color: var(--label);
+      margin-bottom: 16px;
+    }
+
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .chip input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .chip span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      font-size: .9rem;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, color .15s;
+    }
+
+    .chip input:checked+span {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .custom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: .9rem;
+      color: var(--label);
+    }
+
+    .custom[hidden] {
+      display: none;
+    }
+
+    input[type="number"] {
+      width: 110px;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      font: 600 1rem var(--mono);
+    }
+
+    .dialog-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 360px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>GPS Position</h1>
+      <div class="status" id="status" data-state="idle" role="status">
+        <span class="dot"></span><span id="statusText">Waiting</span>
+      </div>
+    </header>
+
+    <section class="card hero">
+      <div class="row">
+        <div class="label">Latitude</div>
+        <button class="value big empty" id="lat" data-group="coord" title="Click to change format">—</button>
+      </div>
+      <div class="row">
+        <div class="label">Longitude</div>
+        <button class="value big empty" id="lon" data-group="coord" title="Click to change format">—</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card tile">
+        <div class="label">Horizontal error</div>
+        <button class="value mid empty" id="hacc" data-group="unit" title="Click to change units">—</button>
+        <div class="sub" id="haccSub"></div>
+      </div>
+      <div class="card tile">
+        <div class="label">Altitude</div>
+        <button class="value mid empty" id="alt" data-group="unit" title="Click to change units">—</button>
+        <div class="sub" id="altSub"></div>
+      </div>
+      <div class="card tile">
+        <div class="label">Altitude error</div>
+        <button class="value mid empty" id="vacc" data-group="unit" title="Click to change units">—</button>
+        <div class="sub" id="vaccSub"></div>
+      </div>
+      <div class="card tile">
+        <div class="label">Time of fix</div>
+        <button class="value mid empty" id="time" data-group="time" title="Click to change format">—</button>
+        <div class="sub" id="timeSub"></div>
+      </div>
+    </section>
+
+    <div class="message" id="message" role="alert" hidden></div>
+
+    <div class="controls">
+      <button class="btn primary" id="refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+          <path d="M20 4v7h-7" />
+        </svg>
+        Refresh
+      </button>
+      <button class="btn" id="autoBtn" aria-haspopup="dialog">Auto refresh: <b id="autoLabel">Off</b></button>
+    </div>
+
+    <p class="hint">Click any value to change its format or units.</p>
+  </main>
+
+  <dialog id="autoDialog" aria-labelledby="autoTitle">
+    <form method="dialog" id="autoForm">
+      <h2 id="autoTitle">Auto refresh</h2>
+      <p>How often should the position be re-read?</p>
+      <div class="chips" id="chips"></div>
+      <label class="custom" id="customRow" hidden>
+        Every
+        <input type="number" id="customSecs" min="1" max="86400" step="1" inputmode="numeric" value="15">
+        seconds
+      </label>
+      <div class="dialog-actions">
+        <button class="btn" type="button" id="autoCancel">Cancel</button>
+        <button class="btn primary" type="submit">Set</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var FT_PER_M = 3.280839895;
+      var COORD_MODES = ['dms', 'dec', 'dm'];        // deg-min-sec, decimal degrees, deg + decimal minutes
+      var UNIT_MODES = ['m', 'ft'];
+      var TIME_MODES = ['local', 'utc'];
+      var PRESETS = [0, 1, 2, 5, 10, 30, 60, 'custom']; // seconds; 0 = off
+
+      var $ = function (id) { return document.getElementById(id); };
+
+      // ---------- saved preferences ----------
+      var prefs = { coord: 'dms', unit: 'm', time: 'local', auto: 0 };
+      try {
+        var saved = JSON.parse(localStorage.getItem('gpsPrefs') || '{}');
+        if (COORD_MODES.indexOf(saved.coord) >= 0) prefs.coord = saved.coord;
+        if (UNIT_MODES.indexOf(saved.unit) >= 0) prefs.unit = saved.unit;
+        if (TIME_MODES.indexOf(saved.time) >= 0) prefs.time = saved.time;
+        if (typeof saved.auto === 'number' && saved.auto >= 0 && saved.auto <= 86400) prefs.auto = Math.round(saved.auto);
+      } catch (e) { /* storage unavailable: use defaults */ }
+
+      function savePrefs() {
+        try { localStorage.setItem('gpsPrefs', JSON.stringify(prefs)); } catch (e) { }
+      }
+
+      // ---------- formatting ----------
+      function pad(n, width) {
+        var s = String(n);
+        while (s.length < width) s = '0' + s;
+        return s;
+      }
+
+      function formatCoord(value, isLat) {
+        var hemi = isLat ? (value < 0 ? 'S' : 'N') : (value < 0 ? 'W' : 'E');
+        var abs = Math.abs(value);
+
+        if (prefs.coord === 'dec') {
+          return value.toFixed(6) + '°';
+        }
+        if (prefs.coord === 'dm') {
+          // work in 1/10000 minute so rounding can never show 60.0000′
+          var tenThousandths = Math.round(abs * 60 * 10000);
+          var d = Math.floor(tenThousandths / 600000);
+          var m = (tenThousandths - d * 600000) / 10000;
+          return d + '° ' + pad(m.toFixed(4), 7) + '′ ' + hemi;
+        }
+        // work in 1/100 second so rounding can never show 60.00″
+        var hundredths = Math.round(abs * 3600 * 100);
+        var deg = Math.floor(hundredths / 360000);
+        var rem = hundredths - deg * 360000;
+        var min = Math.floor(rem / 6000);
+        var sec = (rem - min * 6000) / 100;
+        return deg + '° ' + pad(min, 2) + '′ ' + pad(sec.toFixed(2), 5) + '″ ' + hemi;
+      }
+
+      function formatLength(meters, signed) {
+        if (prefs.unit === 'ft') {
+          return Math.round(meters * FT_PER_M).toLocaleString() + ' ft';
+        }
+        var digits = Math.abs(meters) < 100 ? 1 : 0;
+        return meters.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }) + ' m';
+      }
+
+      function formatTime(ms) {
+        var d = new Date(ms);
+        if (prefs.time === 'utc') {
+          return pad(d.getUTCHours(), 2) + ':' + pad(d.getUTCMinutes(), 2) + ':' + pad(d.getUTCSeconds(), 2) + ' UTC';
+        }
+        return d.toLocaleTimeString();
+      }
+
+      function formatDate(ms) {
+        var d = new Date(ms);
+        if (prefs.time === 'utc') {
+          return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1, 2) + '-' + pad(d.getUTCDate(), 2);
+        }
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+
+      function formatAge(ms) {
+        var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+        if (s < 2) return 'just now';
+        if (s < 60) return s + ' s ago';
+        if (s < 3600) return Math.floor(s / 60) + ' min ago';
+        return Math.floor(s / 3600) + ' h ago';
+      }
+
+      function formatInterval(secs) {
+        if (!secs) return 'Off';
+        if (secs % 3600 === 0) return (secs / 3600) + ' h';
+        if (secs % 60 === 0) return (secs / 60) + ' min';
+        return secs + ' s';
+      }
+
+      // ---------- rendering ----------
+      var fix = null;   // last position reading
+
+      function setValue(id, text, available) {
+        var el = $(id);
+        el.textContent = text;
+        el.classList.toggle('empty', !available);
+      }
+
+      function render() {
+        if (!fix) return;
+        setValue('lat', formatCoord(fix.latitude, true), true);
+        setValue('lon', formatCoord(fix.longitude, false), true);
+
+        setValue('hacc', '± ' + formatLength(fix.accuracy), true);
+
+        var hasAlt = typeof fix.altitude === 'number' && isFinite(fix.altitude);
+        setValue('alt', hasAlt ? formatLength(fix.altitude) : '—', hasAlt);
+        $('altSub').textContent = hasAlt ? '' : 'Not reported by this device';
+
+        var hasVacc = typeof fix.altitudeAccuracy === 'number' && isFinite(fix.altitudeAccuracy);
+        setValue('vacc', hasVacc ? '± ' + formatLength(fix.altitudeAccuracy) : '—', hasVacc);
+        $('vaccSub').textContent = hasVacc ? '' : 'Not reported by this device';
+
+        setValue('time', formatTime(fix.timestamp), true);
+        renderAge();
+      }
+
+      function renderAge() {
+        if (!fix) return;
+        $('timeSub').textContent = formatDate(fix.timestamp) + ' · ' + formatAge(fix.timestamp);
+      }
+
+      function flash() {
+        var values = document.querySelectorAll('.value');
+        for (var i = 0; i < values.length; i++) {
+          values[i].classList.remove('flash');
+          void values[i].offsetWidth;   // restart the animation
+          values[i].classList.add('flash');
+        }
+      }
+
+      function setStatus(state, text) {
+        $('status').dataset.state = state;
+        $('statusText').textContent = text;
+      }
+
+      function showMessage(text) {
+        $('message').textContent = text || '';
+        $('message').hidden = !text;
+      }
+
+      // ---------- reading the position ----------
+      var pending = false;
+
+      function refresh() {
+        if (pending) return;
+
+        if (!('geolocation' in navigator)) {
+          setStatus('error', 'Unavailable');
+          showMessage('This browser does not support location.');
+          return;
+        }
+        if (!window.isSecureContext) {
+          setStatus('error', 'Unavailable');
+          showMessage('Browsers only share location with secure pages. Open this page with an https:// address.');
+          return;
+        }
+
+        pending = true;
+        setStatus('busy', 'Locating…');
+        $('refresh').disabled = true;
+        $('refresh').classList.add('spinning');
+
+        navigator.geolocation.getCurrentPosition(onFix, onError, {
+          enableHighAccuracy: true,   // ask the device to prefer its GPS chip
+          maximumAge: 0,              // never accept a cached reading
+          timeout: 20000
+        });
+      }
+
+      function done() {
+        pending = false;
+        $('refresh').disabled = false;
+        $('refresh').classList.remove('spinning');
+      }
+
+      function onFix(pos) {
+        done();
+        fix = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          altitude: pos.coords.altitude,
+          altitudeAccuracy: pos.coords.altitudeAccuracy,
+          timestamp: pos.timestamp
+        };
+        showMessage('');
+        setStatus('ok', 'Position found');
+        render();
+        flash();
+      }
+
+      function onError(err) {
+        done();
+        var text;
+        if (err.code === 1) {
+          text = 'Location permission was denied. Allow location for this site in your browser settings, then press Refresh.';
+          setStatus('error', 'Permission denied');
+        } else if (err.code === 3) {
+          text = 'The device took too long to find a position. Try again, ideally with a clear view of the sky.';
+          setStatus('error', 'Timed out');
+        } else {
+          text = 'The device could not determine a position. Check that location services are turned on.';
+          setStatus('error', 'No position');
+        }
+        showMessage(text);
+      }
+
+      // ---------- auto refresh ----------
+      var timer = null;
+
+      function applyAuto() {
+        if (timer) { clearInterval(timer); timer = null; }
+        if (prefs.auto > 0) timer = setInterval(refresh, prefs.auto * 1000);
+        $('autoLabel').textContent = formatInterval(prefs.auto);
+      }
+
+      // build the interval choices
+      var chips = $('chips');
+      PRESETS.forEach(function (p) {
+        var label = document.createElement('label');
+        label.className = 'chip';
+        var input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'interval';
+        input.value = String(p);
+        var span = document.createElement('span');
+        span.textContent = p === 'custom' ? 'Custom' : formatInterval(p);
+        label.appendChild(input);
+        label.appendChild(span);
+        chips.appendChild(label);
+      });
+
+      function selectedInterval() {
+        var checked = chips.querySelector('input:checked');
+        return checked ? checked.value : '0';
+      }
+
+      function syncCustomRow() {
+        var custom = selectedInterval() === 'custom';
+        $('customRow').hidden = !custom;
+        $('customSecs').required = custom;
+      }
+
+      chips.addEventListener('change', function () {
+        syncCustomRow();
+        if (selectedInterval() === 'custom') $('customSecs').focus();
+      });
+
+      $('autoBtn').addEventListener('click', function () {
+        var isPreset = PRESETS.indexOf(prefs.auto) >= 0;
+        var want = isPreset ? String(prefs.auto) : 'custom';
+        var inputs = chips.querySelectorAll('input');
+        for (var i = 0; i < inputs.length; i++) inputs[i].checked = inputs[i].value === want;
+        if (!isPreset) $('customSecs').value = prefs.auto;
+        syncCustomRow();
+        $('autoDialog').showModal();
+      });
+
+      $('autoCancel').addEventListener('click', function () { $('autoDialog').close(); });
+
+      // clicking the dimmed area outside the box closes it
+      $('autoDialog').addEventListener('click', function (e) {
+        if (e.target === $('autoDialog')) $('autoDialog').close();
+      });
+
+      $('autoForm').addEventListener('submit', function () {
+        var choice = selectedInterval();
+        var secs = choice === 'custom' ? Math.round(Number($('customSecs').value)) : Number(choice);
+        if (!isFinite(secs) || secs < 0) secs = 0;
+        prefs.auto = Math.min(secs, 86400);
+        savePrefs();
+        applyAuto();
+        if (prefs.auto > 0) refresh();
+      });
+
+      // ---------- clicking values switches format ----------
+      var GROUPS = { coord: COORD_MODES, unit: UNIT_MODES, time: TIME_MODES };
+
+      document.addEventListener('click', function (e) {
+        var el = e.target.closest ? e.target.closest('.value') : null;
+        if (!el) return;
+        var group = el.dataset.group;
+        var modes = GROUPS[group];
+        prefs[group] = modes[(modes.indexOf(prefs[group]) + 1) % modes.length];
+        savePrefs();
+        render();
+      });
+
+      // ---------- start ----------
+      $('refresh').addEventListener('click', refresh);
+      setInterval(renderAge, 1000);
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && prefs.auto > 0) refresh();   // catch up after the tab was in the background
+      });
+      applyAuto();
+      refresh();
+    })();
+  </script>
+</body>
+
+</html>
