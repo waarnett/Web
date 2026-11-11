@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#05080f">
-  <title>GPS Position</title>
+  <title>GNSS Position</title>
 
   <style>
     :root {
@@ -422,7 +422,7 @@
 <body>
   <main>
     <header>
-      <h1>GPS Position</h1>
+      <h1>GNSS Position</h1>
       <div class="status" id="status" data-state="idle" role="status">
         <span class="dot"></span><span id="statusText">Waiting</span>
       </div>
@@ -454,6 +454,16 @@
         <div class="label">Altitude error</div>
         <button class="value mid empty" id="vacc" data-group="unit" title="Click to change units">—</button>
         <div class="sub" id="vaccSub"></div>
+      </div>
+      <div class="card tile">
+        <div class="label">Speed</div>
+        <button class="value mid empty" id="speed" data-group="speed" title="Click to change units">—</button>
+        <div class="sub" id="speedSub"></div>
+      </div>
+      <div class="card tile">
+        <div class="label">Heading</div>
+        <button class="value mid empty" id="heading" data-group="heading" title="Click to change format">—</button>
+        <div class="sub" id="headingSub"></div>
       </div>
       <div class="card tile">
         <div class="label">Time of fix</div>
@@ -504,17 +514,28 @@
       var COORD_MODES = ['dms', 'dec', 'dm'];        // deg-min-sec, decimal degrees, deg + decimal minutes
       var UNIT_MODES = ['m', 'ft'];
       var TIME_MODES = ['local', 'utc'];
+      var SPEED_MODES = ['ms', 'kmh', 'mph', 'kn'];   // meters/second, km/hour, miles/hour, knots
+      var HEADING_MODES = ['deg', 'compass'];
+      var SPEED_UNITS = {
+        ms: { factor: 1, label: 'm/s' },
+        kmh: { factor: 3.6, label: 'km/h' },
+        mph: { factor: 2.2369362921, label: 'mph' },
+        kn: { factor: 1.9438444924, label: 'kn' }
+      };
+      var COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
       var PRESETS = [0, 1, 2, 5, 10, 30, 60, 'custom']; // seconds; 0 = off
 
       var $ = function (id) { return document.getElementById(id); };
 
       // ---------- saved preferences ----------
-      var prefs = { coord: 'dms', unit: 'm', time: 'local', auto: 0 };
+      var prefs = { coord: 'dms', unit: 'm', time: 'local', speed: 'ms', heading: 'deg', auto: 0 };
       try {
         var saved = JSON.parse(localStorage.getItem('gpsPrefs') || '{}');
         if (COORD_MODES.indexOf(saved.coord) >= 0) prefs.coord = saved.coord;
         if (UNIT_MODES.indexOf(saved.unit) >= 0) prefs.unit = saved.unit;
         if (TIME_MODES.indexOf(saved.time) >= 0) prefs.time = saved.time;
+        if (SPEED_MODES.indexOf(saved.speed) >= 0) prefs.speed = saved.speed;
+        if (HEADING_MODES.indexOf(saved.heading) >= 0) prefs.heading = saved.heading;
         if (typeof saved.auto === 'number' && saved.auto >= 0 && saved.auto <= 86400) prefs.auto = Math.round(saved.auto);
       } catch (e) { /* storage unavailable: use defaults */ }
 
@@ -558,6 +579,19 @@
         }
         var digits = Math.abs(meters) < 100 ? 1 : 0;
         return meters.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }) + ' m';
+      }
+
+      function formatSpeed(metersPerSecond) {
+        var u = SPEED_UNITS[prefs.speed];
+        return (metersPerSecond * u.factor).toFixed(1) + ' ' + u.label;
+      }
+
+      function headingDegrees(deg) {
+        return (Math.round(deg) % 360) + '°';
+      }
+
+      function headingCompass(deg) {
+        return COMPASS[Math.round(deg / 22.5) % 16];
       }
 
       function formatTime(ms) {
@@ -615,6 +649,21 @@
         setValue('vacc', hasVacc ? '± ' + formatLength(fix.altitudeAccuracy) : '—', hasVacc);
         $('vaccSub').textContent = hasVacc ? '' : 'Not reported by this device';
 
+        // browsers report "no value" as null, NaN or a negative number depending on the device
+        var hasSpeed = typeof fix.speed === 'number' && isFinite(fix.speed) && fix.speed >= 0;
+        setValue('speed', hasSpeed ? formatSpeed(fix.speed) : '—', hasSpeed);
+        $('speedSub').textContent = hasSpeed ? '' : 'Not reported by this device';
+
+        var hasHeading = typeof fix.heading === 'number' && isFinite(fix.heading) && fix.heading >= 0;
+        if (hasHeading) {
+          var asCompass = prefs.heading === 'compass';
+          setValue('heading', asCompass ? headingCompass(fix.heading) : headingDegrees(fix.heading), true);
+          $('headingSub').textContent = (asCompass ? headingDegrees(fix.heading) : headingCompass(fix.heading)) + ' · from true north';
+        } else {
+          setValue('heading', '—', false);
+          $('headingSub').textContent = 'Only reported while moving';
+        }
+
         setValue('time', formatTime(fix.timestamp), true);
         renderAge();
       }
@@ -666,7 +715,7 @@
         $('refresh').classList.add('spinning');
 
         navigator.geolocation.getCurrentPosition(onFix, onError, {
-          enableHighAccuracy: true,   // ask the device to prefer its GPS chip
+          enableHighAccuracy: true,   // ask the device to prefer its satellite (GNSS) receiver
           maximumAge: 0,              // never accept a cached reading
           timeout: 20000
         });
@@ -686,6 +735,8 @@
           accuracy: pos.coords.accuracy,
           altitude: pos.coords.altitude,
           altitudeAccuracy: pos.coords.altitudeAccuracy,
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
           timestamp: pos.timestamp
         };
         showMessage('');
@@ -779,7 +830,7 @@
       });
 
       // ---------- clicking values switches format ----------
-      var GROUPS = { coord: COORD_MODES, unit: UNIT_MODES, time: TIME_MODES };
+      var GROUPS = { coord: COORD_MODES, unit: UNIT_MODES, time: TIME_MODES, speed: SPEED_MODES, heading: HEADING_MODES };
 
       document.addEventListener('click', function (e) {
         var el = e.target.closest ? e.target.closest('.value') : null;
