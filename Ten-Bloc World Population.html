@@ -1,0 +1,133 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ten-Bloc World Population</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+/* Layout: one reading column; chart + summary table side by side when wide, then an alphabetical country roster per bloc */
+:root{
+  --bg:#f6f7f8; --surface:#ffffff; --fg:#16191d; --muted:#5b6470; --line:#dde1e6; --accent:#1f5f8b;
+  --display:"Newsreader",Georgia,"Times New Roman",serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121518;--surface:#1a1f24;--fg:#e8ebee;--muted:#9aa4af;--line:#2c333a;--accent:#7fb6dd;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121518;--surface:#1a1f24;--fg:#e8ebee;--muted:#9aa4af;--line:#2c333a;--accent:#7fb6dd;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:40px}
+h1,h2,h3{font-family:var(--display);font-weight:600;text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,4.5vw,40px)}
+h2{font-size:24px}
+h3{font-size:20px}
+.lede{color:var(--muted);max-width:65ch;margin:8px 0 0}
+.num{font-variant-numeric:tabular-nums}
+.top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:32px;align-items:center}
+@media (max-width:820px){.top{grid-template-columns:1fr}}
+.chartbox{position:relative;width:100%;max-width:100%;aspect-ratio:1/1}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right}
+tfoot td{font-weight:600;border-bottom:0}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:8px;vertical-align:-1px}
+.tablewrap{overflow-x:auto}
+.notes{font-size:14px;color:var(--muted);max-width:75ch;display:grid;gap:6px}
+.notes p{margin:0}
+.bloc{display:grid;gap:10px;padding-top:20px;border-top:1px solid var(--line)}
+.bloc-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+.bloc-head .stat{color:var(--muted);font-size:14px}
+.def{color:var(--muted);font-size:14px;margin:0;max-width:75ch}
+ul.roster{list-style:none;margin:0;padding:0;columns:3 230px;column-gap:28px}
+ul.roster li{break-inside:avoid;display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px dotted var(--line);font-size:14px}
+ul.roster li .n{min-width:0}
+ul.roster li small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+ul.roster li .p{white-space:nowrap;color:var(--muted)}
+footer{font-size:13px;color:var(--muted)}
+a{color:var(--accent)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>World population in ten blocs</h1>
+    <p class="lede">All 193 UN member states plus Taiwan, assigned to ten groups. Dependent territories are counted inside the country that governs them. Figures are 2026 estimates.</p>
+  </header>
+
+  <section class="top">
+    <div class="chartbox"><canvas id="pie" aria-label="Pie chart of world population by bloc"></canvas></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Bloc</th><th class="r">States</th><th class="r">Population</th><th class="r">Share</th></tr></thead>
+        <tbody id="sumBody"></tbody>
+        <tfoot><tr><td>Total</td><td class="r num" id="totN"></td><td class="r num" id="totP"></td><td class="r num">100%</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:28px">
+    <h2>Countries in each bloc</h2>
+    <div id="rosters" style="display:grid;gap:28px"></div>
+  </section>
+
+  <section class="notes">
+    <h2 style="color:var(--fg)">Judgment calls</h2>
+    <p><b>Left out:</b> the State of Palestine and the Holy See (UN observer states, not members), together about 5.7 million people. Kosovo is not listed separately; the UN figures count it inside Serbia.</p>
+  </section>
+
+  <footer>Source: Worldometer, “Countries in the world by population (2026)”, built on UN World Population Prospects 2024 (medium variant). <a href="https://www.worldometers.info/world-population/population-by-country/">worldometers.info</a></footer>
+</div>
+
+<script>
+const D = {"groups": [{"name": "The West", "total": 977151673, "pct": 11.78, "countries": [["Albania", 2751025, ""], ["Australia", 27227096, ""], ["Austria", 9107266, ""], ["Belgium", 11774642, ""], ["Bulgaria", 6667659, ""], ["Canada", 40467728, ""], ["Croatia", 3822345, ""], ["Cyprus", 1382334, ""], ["Czechia", 10527781, ""], ["Denmark", 6135675, "incl. Greenland, Faroe Islands"], ["Estonia", 1331062, ""], ["Finland", 5621739, ""], ["France", 69642313, "incl. Réunion, Guadeloupe, Martinique, French Guiana, Mayotte, New Caledonia, French Polynesia, Saint Martin, Saint Barthélemy, Wallis & Futuna, Saint Pierre & Miquelon"], ["Germany", 83644258, ""], ["Greece", 9897115, ""], ["Hungary", 9585818, ""], ["Iceland", 402329, ""], ["Ireland", 5356950, ""], ["Israel", 9647689, ""], ["Italy", 58926166, ""], ["Latvia", 1835935, ""], ["Liechtenstein", 40368, ""], ["Lithuania", 2797338, ""], ["Luxembourg", 687448, ""], ["Malta", 549011, ""], ["Monaco", 38087, ""], ["Montenegro", 626233, ""], ["Netherlands", 18818739, "incl. Curaçao, Aruba, Sint Maarten, Caribbean Netherlands"], ["New Zealand", 5304818, "incl. Cook Islands, Niue, Tokelau"], ["North Macedonia", 1804063, ""], ["Norway", 5652989, ""], ["Poland", 37843188, ""], ["Portugal", 10395362, ""], ["Romania", 18800605, ""], ["Slovakia", 5451342, ""], ["Slovenia", 2114573, ""], ["Spain", 47850793, ""], ["Sweden", 10701047, ""], ["Switzerland", 9007798, ""], ["United Kingdom", 70312946, "incl. Isle of Man, Cayman Islands, Bermuda, Turks & Caicos, Gibraltar, British Virgin Islands, Anguilla, Saint Helena, Montserrat, Falkland Islands"], ["United States", 352600000, "incl. Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern Mariana Islands"]], "def": "USA, EU (27), UK, Switzerland, Norway, Iceland, Canada, Australia, New Zealand, Israel, Liechtenstein, Monaco, Montenegro, Albania, North Macedonia", "note": ""}, {"name": "Rus", "total": 152331476, "pct": 1.84, "countries": [["Belarus", 8937018, ""], ["Russia", 143394458, ""]], "def": "Russia, Belarus", "note": "Ukraine is not in Rus; it is in ROW."}, {"name": "Islam", "total": 1600917195, "pct": 19.3, "countries": [["Afghanistan", 45047069, ""], ["Algeria", 48028334, ""], ["Azerbaijan", 10454855, ""], ["Bahrain", 1675572, ""], ["Bangladesh", 177818044, ""], ["Brunei", 469775, ""], ["Chad", 21560380, ""], ["Comoros", 899010, ""], ["Djibouti", 1199459, ""], ["Egypt", 120101175, ""], ["Indonesia", 287886782, ""], ["Iran", 93168497, ""], ["Iraq", 48007437, ""], ["Jordan", 11589532, ""], ["Kazakhstan", 21083626, ""], ["Kuwait", 5102773, ""], ["Kyrgyzstan", 7400465, ""], ["Lebanon", 5897467, ""], ["Libya", 7539851, ""], ["Maldives", 531517, ""], ["Mali", 25932275, ""], ["Mauritania", 5461319, ""], ["Morocco", 39373254, "incl. Western Sahara"], ["Oman", 5671458, ""], ["Pakistan", 259299791, ""], ["Qatar", 3173559, ""], ["Saudi Arabia", 35165787, ""], ["Somalia", 20305907, ""], ["Sudan", 53282719, ""], ["Syria", 26472497, ""], ["Tajikistan", 10978599, ""], ["Tunisia", 12415138, ""], ["Turkey", 87926082, ""], ["Turkmenistan", 7736632, ""], ["United Arab Emirates", 11574682, ""], ["Uzbekistan", 37724223, ""], ["Yemen", 42961653, ""]], "def": "Indonesia; North Africa from Morocco to Egypt; Mali, Mauritania, Chad, Sudan, Somalia, Djibouti, Comoros; the Arabian Peninsula; Iraq, Syria, Jordan, Lebanon, Turkey, Iran; Kazakhstan, Tajikistan, Uzbekistan, Turkmenistan, Kyrgyzstan; Azerbaijan; Afghanistan, Pakistan, Bangladesh; Brunei, Maldives", "note": ""}, {"name": "SubSahara", "total": 1227647456, "pct": 14.8, "countries": [["Angola", 40215179, ""], ["Benin", 15170419, ""], ["Botswana", 2603388, ""], ["Burkina Faso", 24601700, ""], ["Burundi", 14729157, ""], ["Cabo Verde", 529630, ""], ["Cameroon", 30640817, ""], ["Central African Republic", 5698984, ""], ["Côte d'Ivoire", 33494346, ""], ["DR Congo", 116452162, ""], ["Equatorial Guinea", 1984468, ""], ["Eritrea", 3682669, ""], ["Eswatini", 1269859, ""], ["Ethiopia", 138902185, ""], ["Gabon", 2647399, ""], ["Gambia", 2884079, ""], ["Ghana", 35697557, ""], ["Guinea", 15441993, ""], ["Guinea-Bissau", 2297808, ""], ["Kenya", 58636412, ""], ["Lesotho", 2389336, ""], ["Liberia", 5853949, ""], ["Madagascar", 33522052, ""], ["Malawi", 22785535, ""], ["Mauritius", 1265059, ""], ["Mozambique", 36639851, ""], ["Namibia", 3153246, ""], ["Niger", 28814878, ""], ["Nigeria", 242431832, ""], ["Republic of the Congo", 6637785, ""], ["Rwanda", 14889693, ""], ["Senegal", 19366548, ""], ["Seychelles", 134959, ""], ["Sierra Leone", 8996745, ""], ["South Africa", 65453084, ""], ["South Sudan", 12436037, ""], ["São Tomé and Príncipe", 244994, ""], ["Tanzania", 72563780, ""], ["Togo", 9930918, ""], ["Uganda", 52761469, ""], ["Zambia", 22521915, ""], ["Zimbabwe", 17273580, ""]], "def": "Africa minus the Islam group", "note": ""}, {"name": "Latin America & Caribbean", "total": 667208135, "pct": 8.05, "countries": [["Antigua and Barbuda", 94626, ""], ["Argentina", 46003734, ""], ["Bahamas", 404628, ""], ["Barbados", 282724, ""], ["Belize", 428644, ""], ["Bolivia", 12749291, ""], ["Brazil", 213562666, ""], ["Chile", 19945850, ""], ["Colombia", 53936226, ""], ["Costa Rica", 5174789, ""], ["Cuba", 10892659, ""], ["Dominica", 65511, ""], ["Dominican Republic", 11609500, ""], ["Ecuador", 18444506, ""], ["El Salvador", 6391253, ""], ["Grenada", 117362, ""], ["Guatemala", 18967978, ""], ["Guyana", 840890, ""], ["Haiti", 12037506, ""], ["Honduras", 11184760, ""], ["Jamaica", 2833403, ""], ["Mexico", 132997658, ""], ["Nicaragua", 7097329, ""], ["Panama", 4625718, ""], ["Paraguay", 7095279, ""], ["Peru", 34922148, ""], ["Saint Kitts and Nevis", 46992, ""], ["Saint Lucia", 180488, ""], ["Saint Vincent and the Grenadines", 99245, ""], ["Suriname", 645256, ""], ["Trinidad and Tobago", 1513268, ""], ["Uruguay", 3382537, ""], ["Venezuela", 28633711, ""]], "def": "South and Central America, Mexico, and the Caribbean island nations", "note": ""}, {"name": "China", "total": 1421015879, "pct": 17.13, "countries": [["China", 1421015879, "incl. Hong Kong, Macao"]], "def": "China", "note": ""}, {"name": "SouthAsia", "total": 1530405515, "pct": 18.45, "countries": [["Bhutan", 802214, ""], ["India", 1476625576, ""], ["Nepal", 29629410, ""], ["Sri Lanka", 23348315, ""]], "def": "India, Nepal, Sri Lanka, Bhutan", "note": ""}, {"name": "Western Pacific", "total": 314763882, "pct": 3.8, "countries": [["Japan", 122427731, ""], ["Philippines", 117724471, ""], ["South Korea", 51600388, ""], ["Taiwan", 23011292, "not a UN member; included because you named it"]], "def": "Japan, South Korea, Taiwan, Philippines", "note": ""}, {"name": "SEAsia", "total": 297237963, "pct": 3.58, "countries": [["Cambodia", 18051219, ""], ["Laos", 7974017, ""], ["Malaysia", 36385115, ""], ["Myanmar", 55184819, ""], ["Singapore", 5905748, ""], ["Thailand", 71559614, ""], ["Vietnam", 102177431, ""]], "def": "Malaysia, Thailand, Cambodia, Vietnam, Singapore, Laos, Myanmar", "note": ""}, {"name": "ROW", "total": 104470216, "pct": 1.26, "countries": [["Andorra", 83753, ""], ["Armenia", 2930915, ""], ["Bosnia and Herzegovina", 3114242, ""], ["Fiji", 937282, ""], ["Georgia", 3804642, ""], ["Kiribati", 138445, ""], ["Marshall Islands", 35075, ""], ["Micronesia", 114183, ""], ["Moldova", 2961253, ""], ["Mongolia", 3556798, ""], ["Nauru", 12101, ""], ["North Korea", 26633691, ""], ["Palau", 17614, ""], ["Papua New Guinea", 10947848, ""], ["Samoa", 220528, ""], ["San Marino", 33605, ""], ["Serbia", 6641964, ""], ["Solomon Islands", 858288, ""], ["Timor-Leste", 1436923, ""], ["Tonga", 103291, ""], ["Tuvalu", 9362, ""], ["Ukraine", 39535849, ""], ["Vanuatu", 342564, ""]], "def": "All other UN member states", "note": ""}], "world": 8293149390};
+const COLORS = {"The West":"#8fb8de","Rus":"#c9a7de","Islam":"#7fc8a9","SubSahara":"#e8b86a","Latin America & Caribbean":"#f2a6a0",
+  "China":"#e7d36f","SouthAsia":"#f0a35e","Western Pacific":"#9fd3dc","SEAsia":"#b9cf7f","ROW":"#c4c9cf"};
+const fmt = n => n.toLocaleString("en-US");
+const fmtM = n => n >= 1e9 ? (n/1e9).toFixed(2)+" B" : (n/1e6).toFixed(0)+" M";
+
+// summary table, largest first
+const bySize = [...D.groups].sort((a,b)=>b.total-a.total);
+document.getElementById("sumBody").innerHTML = bySize.map(g =>
+  `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span>${g.name}</td>
+   <td class="r num">${g.countries.length}</td><td class="r num">${fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
+document.getElementById("totN").textContent = D.groups.reduce((s,g)=>s+g.countries.length,0);
+document.getElementById("totP").textContent = fmt(D.world);
+
+// rosters, largest bloc first (same order as the summary table); countries alphabetical
+document.getElementById("rosters").innerHTML = bySize.map(g => `
+  <article class="bloc" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
+    <div class="bloc-head"><h3>${g.name}</h3>
+      <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${fmt(g.total)} people · ${g.pct.toFixed(1)}%</span></div>
+    <p class="def">${g.def}</p>${g.note?`<p class="def"><i>${g.note}</i></p>`:""}
+    <ul class="roster">${g.countries.map(([c,p,n]) =>
+      `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${fmt(p)}</span></li>`).join("")}</ul>
+  </article>`).join("");
+
+// pie: small slices placed between large ones so their outside labels don't collide
+const order = ["SouthAsia","Rus","China","SEAsia","Islam","ROW","SubSahara","Western Pacific","The West","Latin America & Caribbean"];
+const pieData = order.map(n => D.groups.find(g=>g.name===n));
+const css = getComputedStyle(document.documentElement);
+Chart.register(ChartDataLabels);
+new Chart(document.getElementById("pie"), {
+  type:"pie",
+  data:{labels:pieData.map(g=>g.name),
+    datasets:[{data:pieData.map(g=>g.total),backgroundColor:pieData.map(g=>COLORS[g.name]),
+      borderColor:css.getPropertyValue("--bg").trim(),borderWidth:2}]},
+  options:{responsive:true,maintainAspectRatio:false,rotation:-90,
+    layout:{padding:56},
+    animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${fmt(g.total)} (${g.pct.toFixed(1)}%)`;}}},
+      datalabels:{
+        font:{family:"Public Sans, system-ui, sans-serif",weight:"600",size:12},
+        textAlign:"center",
+        color:c=> pieData[c.dataIndex].pct>=5 ? "#111" : css.getPropertyValue("--fg").trim(),
+        anchor:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
+        align:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
+        offset:4,
+        formatter:(v,c)=>{const g=pieData[c.dataIndex];return g.name+"\n"+g.pct.toFixed(1)+"%";}
+      }}}
+});
+</script>
+
+</body></html>
