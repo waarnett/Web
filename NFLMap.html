@@ -95,7 +95,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col overflow-y-auto select-none">
 
-  <!-- Header (Simplified: Title & Year only, no SVG/PNG buttons) -->
+  <!-- Header -->
   <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-2.5 sticky top-0 z-40 shadow-sm">
     <div class="max-w-[1700px] mx-auto flex items-center justify-center sm:justify-start gap-3">
       <img 
@@ -210,9 +210,8 @@
       </div>
     </div>
 
-    <!-- Conference & Division Pickers (Moved directly above the Standings) -->
+    <!-- Conference & Division Pickers (Directly above Standings) -->
     <div id="filter-controls-wrapper" class="flex items-center justify-center gap-2.5 flex-wrap pt-1">
-      <!-- Conference Buttons: Both, AFC, NFC -->
       <div class="bg-white p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-xs">
         <button onclick="setConference('BOTH')" id="conf-both" class="conf-btn active px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-slate-400"></span>Both (32)
@@ -225,7 +224,6 @@
         </button>
       </div>
 
-      <!-- Dynamic Division Filter Group -->
       <div id="division-filter-group" class="bg-white p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-xs"></div>
     </div>
 
@@ -253,6 +251,73 @@
   </section>
 
   <script>
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual";
+    }
+
+    const AUTO_REFRESH_STATE_KEY = "nfl_map_auto_refresh_state";
+
+    /**
+     * Save scroll position and active UI selections before triggering an auto-refresh reload
+     */
+    function performAutoRefreshReload() {
+      try {
+        const snapshot = {
+          scrollX: window.scrollX || window.pageXOffset || 0,
+          scrollY: window.scrollY || window.pageYOffset || 0,
+          conference: currentConference,
+          division: currentDivision,
+          pinnedTeamId: pinnedTeam ? pinnedTeam.id : null
+        };
+        sessionStorage.setItem(AUTO_REFRESH_STATE_KEY, JSON.stringify(snapshot));
+      } catch (e) {}
+      window.location.reload();
+    }
+
+    /**
+     * Restore saved scroll position and UI state after an auto-refresh reload
+     */
+    async function restoreAutoRefreshStateIfPresent() {
+      try {
+        const raw = sessionStorage.getItem(AUTO_REFRESH_STATE_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(AUTO_REFRESH_STATE_KEY);
+
+        const state = JSON.parse(raw);
+        if (state.conference) {
+          currentConference = state.conference;
+          document.getElementById("conf-both").classList.toggle("active", currentConference === "BOTH");
+          document.getElementById("conf-afc").classList.toggle("active", currentConference === "AFC");
+          document.getElementById("conf-nfc").classList.toggle("active", currentConference === "NFC");
+        }
+        if (state.division) {
+          currentDivision = state.division;
+        }
+        renderDivisionButtons();
+        applyFilters();
+        renderStandings();
+
+        if (state.pinnedTeamId) {
+          const teamObj = NFL_TEAMS.find(t => t.id === state.pinnedTeamId);
+          if (teamObj) {
+            pinnedTeam = teamObj;
+            d3.selectAll(".team-marker").classed("selected", false);
+            d3.select(`#marker-${teamObj.id}`).classed("selected", true);
+            await showHoverCard(teamObj);
+          }
+        }
+
+        const targetX = Number(state.scrollX) || 0;
+        const targetY = Number(state.scrollY) || 0;
+        requestAnimationFrame(() => {
+          window.scrollTo({ left: targetX, top: targetY, behavior: "instant" });
+          setTimeout(() => {
+            window.scrollTo({ left: targetX, top: targetY, behavior: "instant" });
+          }, 50);
+        });
+      } catch (e) {}
+    }
+
     /**
      * All 32 NFL Teams with Live 2026 NFL Season Standings (Week 10, Nov 12, 2026)
      */
@@ -893,7 +958,7 @@
         if (liveBadge) liveBadge.classList.remove("hidden");
         if (!liveRefreshIntervalId) {
           liveRefreshIntervalId = setInterval(() => {
-            window.location.reload();
+            performAutoRefreshReload();
           }, 5 * 60 * 1000);
         }
       } else {
@@ -923,7 +988,7 @@
             if (delayMs > 0 && !scheduledKickoffTimers.has(timerKey)) {
               scheduledKickoffTimers.add(timerKey);
               setTimeout(() => {
-                window.location.reload();
+                performAutoRefreshReload();
               }, delayMs);
             }
           }
@@ -1182,8 +1247,6 @@
 
     /**
      * Render the 18-week schedule grid inside the Team Card
-     * - Bold outline on this week's game card
-     * - Opponent's W-L-T record in parens in the lower right corner of upcoming game cards
      */
     async function renderTeamScheduleInCard(team) {
       const grid = document.getElementById("card-schedule-grid");
@@ -1268,7 +1331,6 @@
             </div>
           `;
         } else {
-          // Upcoming game: kickoff time on the left, opponent's W-L-T record in parens on the lower right
           bottomHtml = `
             <div class="flex items-center justify-between gap-1 mt-1.5 pt-1 border-t border-slate-100 text-[10px]">
               <span class="text-slate-500 truncate font-medium">${item.timeStr || `Week ${item.week}`}</span>
@@ -1499,6 +1561,7 @@
         renderMapFromTopology(usData);
         renderStandings();
         renderThisWeeksGames();
+        await restoreAutoRefreshStateIfPresent();
         hideLoader();
         setInterval(syncLiveScoreboard, 30000);
       } else {
@@ -1631,7 +1694,7 @@
       document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
-    function showHoverCard(team) {
+    async function showHoverCard(team) {
       currentDisplayedTeamId = team.id;
       document.getElementById("card-team-name").textContent = team.name;
       
@@ -1656,7 +1719,7 @@
       hoverCardEmpty.classList.add("hidden");
       hoverCard.classList.remove("hidden");
 
-      renderTeamScheduleInCard(team);
+      await renderTeamScheduleInCard(team);
     }
 
     function hideHoverCard() {
