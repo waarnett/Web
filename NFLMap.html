@@ -163,6 +163,10 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 id="card-team-name" class="font-bold text-slate-900 text-lg leading-tight"></h3>
                 <span id="card-record-badge" class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 font-mono"></span>
+                <a id="card-espn-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition">
+                  <span>details</span>
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                </a>
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 <span id="card-conf-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></span>
@@ -210,26 +214,40 @@
       </div>
     </div>
 
-    <!-- Conference & Division Pickers (Directly above Standings) -->
+    <!-- Conference & Division Pickers + Sort by Division Checkbox (Directly above Standings) -->
     <div id="filter-controls-wrapper" class="flex items-center justify-center gap-2.5 flex-wrap pt-1">
       <div class="bg-white p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-xs">
         <button onclick="setConference('BOTH')" id="conf-both" class="conf-btn active px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-slate-400"></span>Both (32)
         </button>
-        <button onclick="setConference('AFC')" id="conf-afc" class="conf-btn conf-btn-afc px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
+        <button onclick="setConference('AFC')" id="conf-afc" class="conf-btn conf-btn-afc px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-red-500"></span>AFC (16)
         </button>
-        <button onclick="setConference('NFC')" id="conf-nfc" class="conf-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
+        <button onclick="setConference('NFC')" id="conf-nfc" class="conf-btn px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-blue-500"></span>NFC (16)
         </button>
       </div>
 
       <div id="division-filter-group" class="bg-white p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-xs"></div>
+
+      <!-- Sort by Division Checkbox -->
+      <label class="bg-white px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-2 text-xs font-semibold text-slate-700 shadow-xs cursor-pointer hover:bg-slate-50 transition">
+        <input type="checkbox" id="sort-by-division-checkbox" onchange="toggleSortByDivision(this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+        <span>Sort by division</span>
+      </label>
     </div>
 
-    <!-- Standings Container (League / Conference / Division) -->
-    <div id="standings-container" class="flex flex-wrap justify-center gap-6">
-      <!-- Dynamically populated via renderStandings() -->
+    <!-- Standings Container (League / Conference / Division) + Legend Note -->
+    <div class="flex flex-col items-center gap-2.5">
+      <div id="standings-container" class="w-full flex flex-wrap justify-center gap-6">
+        <!-- Dynamically populated via renderStandings() -->
+      </div>
+      <p class="text-[11px] text-slate-500 text-center px-2">
+        <span class="font-mono font-bold text-slate-700">x</span> = Clinched playoff berth &nbsp;&bull;&nbsp;
+        <span class="font-mono font-bold text-slate-700">y</span> = Clinched division &nbsp;&bull;&nbsp;
+        <span class="font-mono font-bold text-slate-700">z</span> = Clinched division &amp; #1 seed (first-round bye) &nbsp;&bull;&nbsp;
+        <span class="font-mono font-bold text-slate-700">e</span> = Eliminated from playoff contention
+      </p>
     </div>
 
     <!-- This Week's Games Container (Below Standings) -->
@@ -257,9 +275,6 @@
 
     const AUTO_REFRESH_STATE_KEY = "nfl_map_auto_refresh_state";
 
-    /**
-     * Save scroll position and active UI selections before triggering an auto-refresh reload
-     */
     function performAutoRefreshReload() {
       try {
         const snapshot = {
@@ -267,6 +282,7 @@
           scrollY: window.scrollY || window.pageYOffset || 0,
           conference: currentConference,
           division: currentDivision,
+          sortByDivision: sortByDivision,
           pinnedTeamId: pinnedTeam ? pinnedTeam.id : null
         };
         sessionStorage.setItem(AUTO_REFRESH_STATE_KEY, JSON.stringify(snapshot));
@@ -274,9 +290,6 @@
       window.location.reload();
     }
 
-    /**
-     * Restore saved scroll position and UI state after an auto-refresh reload
-     */
     async function restoreAutoRefreshStateIfPresent() {
       try {
         const raw = sessionStorage.getItem(AUTO_REFRESH_STATE_KEY);
@@ -292,6 +305,11 @@
         }
         if (state.division) {
           currentDivision = state.division;
+        }
+        if (typeof state.sortByDivision === "boolean") {
+          sortByDivision = state.sortByDivision;
+          const cb = document.getElementById("sort-by-division-checkbox");
+          if (cb) cb.checked = sortByDivision;
         }
         renderDivisionButtons();
         applyFilters();
@@ -319,7 +337,7 @@
     }
 
     /**
-     * All 32 NFL Teams with Live 2026 NFL Season Standings (Week 10, Nov 12, 2026)
+     * All 32 NFL Teams with Live 2026 NFL Season Standings (Nov 13, 2026)
      */
     const NFL_TEAMS = [
       // ================= NFC WEST =================
@@ -336,7 +354,7 @@
         lat: 37.7749,
         offsetX: 0,
         offsetY: 0,
-        wins: 7, losses: 1, ties: 0, divRec: "2-0", confRec: "5-0", pf: 235, pa: 156, divRank: 1,
+        wins: 7, losses: 1, ties: 0, divRec: "3-0", confRec: "4-1", pf: 235, pa: 156, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png"
       },
       {
@@ -352,7 +370,7 @@
         lat: 47.6062,
         offsetX: 0,
         offsetY: 0,
-        wins: 5, losses: 4, ties: 0, divRec: "1-2", confRec: "3-3", pf: 202, pa: 162, divRank: 2,
+        wins: 5, losses: 4, ties: 0, divRec: "2-1", confRec: "2-3", pf: 202, pa: 162, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png"
       },
       {
@@ -368,7 +386,7 @@
         lat: 34.0522,
         offsetX: -12,
         offsetY: -9,
-        wins: 5, losses: 4, ties: 0, divRec: "1-1", confRec: "4-4", pf: 214, pa: 181, divRank: 3,
+        wins: 5, losses: 4, ties: 0, divRec: "0-2", confRec: "3-2", pf: 214, pa: 181, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png"
       },
       {
@@ -384,7 +402,7 @@
         lat: 33.4484,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 6, ties: 0, divRec: "1-2", confRec: "2-4", pf: 178, pa: 255, divRank: 4,
+        wins: 3, losses: 6, ties: 0, divRec: "1-3", confRec: "2-5", pf: 178, pa: 255, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png"
       },
 
@@ -402,7 +420,7 @@
         lat: 41.8781,
         offsetX: 0,
         offsetY: 0,
-        wins: 7, losses: 2, ties: 0, divRec: "0-1", confRec: "5-1", pf: 241, pa: 184, divRank: 1,
+        wins: 7, losses: 2, ties: 0, divRec: "0-2", confRec: "5-2", pf: 241, pa: 184, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
       },
       {
@@ -418,7 +436,7 @@
         lat: 42.3314,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "1-0", confRec: "5-1", pf: 222, pa: 189, divRank: 2,
+        wins: 6, losses: 2, ties: 0, divRec: "2-0", confRec: "4-1", pf: 222, pa: 189, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/det.png"
       },
       {
@@ -434,7 +452,7 @@
         lat: 44.9778,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "1-0", confRec: "4-1", pf: 146, pa: 116, divRank: 3,
+        wins: 6, losses: 2, ties: 0, divRec: "2-1", confRec: "4-1", pf: 146, pa: 116, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/min.png"
       },
       {
@@ -450,7 +468,7 @@
         lat: 44.5192,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 3, ties: 0, divRec: "0-1", confRec: "4-2", pf: 216, pa: 191, divRank: 4,
+        wins: 6, losses: 3, ties: 0, divRec: "1-2", confRec: "4-3", pf: 216, pa: 191, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png"
       },
 
@@ -468,7 +486,7 @@
         lat: 35.2271,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 5, ties: 0, divRec: "1-0", confRec: "2-3", pf: 199, pa: 219, divRank: 1,
+        wins: 3, losses: 5, ties: 0, divRec: "1-1", confRec: "3-3", pf: 199, pa: 219, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/car.png"
       },
       {
@@ -484,7 +502,7 @@
         lat: 29.9511,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 5, ties: 0, divRec: "0-2", confRec: "2-3", pf: 185, pa: 216, divRank: 2,
+        wins: 3, losses: 5, ties: 0, divRec: "0-1", confRec: "1-3", pf: 185, pa: 216, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/no.png"
       },
       {
@@ -500,7 +518,7 @@
         lat: 27.9506,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 6, ties: 0, divRec: "1-1", confRec: "2-4", pf: 202, pa: 178, divRank: 3,
+        wins: 3, losses: 6, ties: 0, divRec: "2-0", confRec: "3-3", pf: 202, pa: 178, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png"
       },
       {
@@ -516,7 +534,7 @@
         lat: 33.7490,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 6, ties: 0, divRec: "2-1", confRec: "3-3", pf: 188, pa: 223, divRank: 4,
+        wins: 3, losses: 6, ties: 0, divRec: "1-2", confRec: "3-3", pf: 188, pa: 223, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png"
       },
 
@@ -534,7 +552,7 @@
         lat: 40.7128,
         offsetX: -12,
         offsetY: -10,
-        wins: 5, losses: 2, ties: 1, divRec: "2-1", confRec: "4-2-1", pf: 182, pa: 172, divRank: 1,
+        wins: 5, losses: 3, ties: 1, divRec: "2-1-1", confRec: "3-3-1", pf: 203, pa: 196, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png"
       },
       {
@@ -550,7 +568,7 @@
         lat: 32.7767,
         offsetX: 0,
         offsetY: 0,
-        wins: 4, losses: 5, ties: 0, divRec: "1-0", confRec: "2-4", pf: 246, pa: 236, divRank: 2,
+        wins: 4, losses: 5, ties: 0, divRec: "2-1", confRec: "2-4", pf: 246, pa: 236, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png"
       },
       {
@@ -566,7 +584,7 @@
         lat: 38.9072,
         offsetX: -3,
         offsetY: 4,
-        wins: 2, losses: 5, ties: 1, divRec: "0-0", confRec: "1-4-1", pf: 172, pa: 202, divRank: 3,
+        wins: 3, losses: 5, ties: 1, divRec: "2-2-1", confRec: "3-4-1", pf: 196, pa: 223, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png"
       },
       {
@@ -582,7 +600,7 @@
         lat: 39.9526,
         offsetX: 0,
         offsetY: 0,
-        wins: 2, losses: 7, ties: 0, divRec: "0-2", confRec: "2-5", pf: 148, pa: 221, divRank: 4,
+        wins: 2, losses: 7, ties: 0, divRec: "1-3", confRec: "1-6", pf: 148, pa: 221, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png"
       },
 
@@ -600,7 +618,7 @@
         lat: 39.7392,
         offsetX: 0,
         offsetY: 0,
-        wins: 7, losses: 2, ties: 0, divRec: "1-0", confRec: "4-2", pf: 198, pa: 186, divRank: 1,
+        wins: 7, losses: 2, ties: 0, divRec: "2-1", confRec: "3-1", pf: 198, pa: 186, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/den.png"
       },
       {
@@ -616,7 +634,7 @@
         lat: 39.0997,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "1-0", confRec: "5-1", pf: 202, pa: 143, divRank: 2,
+        wins: 6, losses: 2, ties: 0, divRec: "3-1", confRec: "6-1", pf: 202, pa: 143, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
       },
       {
@@ -632,7 +650,7 @@
         lat: 36.1699,
         offsetX: 0,
         offsetY: 0,
-        wins: 4, losses: 5, ties: 0, divRec: "0-1", confRec: "3-3", pf: 238, pa: 268, divRank: 3,
+        wins: 4, losses: 5, ties: 0, divRec: "1-1", confRec: "3-3", pf: 238, pa: 268, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png"
       },
       {
@@ -648,7 +666,7 @@
         lat: 34.0522,
         offsetX: 12,
         offsetY: 9,
-        wins: 0, losses: 8, ties: 0, divRec: "0-1", confRec: "0-5", pf: 121, pa: 219, divRank: 4,
+        wins: 0, losses: 8, ties: 0, divRec: "0-3", confRec: "0-5", pf: 121, pa: 219, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
       },
 
@@ -666,7 +684,7 @@
         lat: 40.4406,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "0-1", confRec: "4-1", pf: 180, pa: 144, divRank: 1,
+        wins: 6, losses: 2, ties: 0, divRec: "2-1", confRec: "3-2", pf: 180, pa: 144, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png"
       },
       {
@@ -682,7 +700,7 @@
         lat: 39.1031,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "1-0", confRec: "4-1", pf: 240, pa: 175, divRank: 2,
+        wins: 6, losses: 2, ties: 0, divRec: "1-1", confRec: "4-2", pf: 240, pa: 175, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png"
       },
       {
@@ -698,7 +716,7 @@
         lat: 41.4993,
         offsetX: 0,
         offsetY: 0,
-        wins: 5, losses: 4, ties: 0, divRec: "1-0", confRec: "4-2", pf: 161, pa: 196, divRank: 3,
+        wins: 5, losses: 4, ties: 0, divRec: "2-1", confRec: "3-3", pf: 161, pa: 196, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png"
       },
       {
@@ -715,7 +733,7 @@
         offsetX: 5,
         offsetY: -4,
         isSmallHotspot: true,
-        wins: 4, losses: 5, ties: 0, divRec: "0-1", confRec: "2-4", pf: 189, pa: 236, divRank: 4,
+        wins: 4, losses: 5, ties: 0, divRec: "0-2", confRec: "2-4", pf: 189, pa: 236, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png"
       },
 
@@ -733,7 +751,7 @@
         lat: 30.3322,
         offsetX: 0,
         offsetY: 0,
-        wins: 6, losses: 2, ties: 0, divRec: "1-0", confRec: "5-1", pf: 229, pa: 121, divRank: 1,
+        wins: 6, losses: 2, ties: 0, divRec: "1-1", confRec: "5-2", pf: 229, pa: 121, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
       },
       {
@@ -749,7 +767,7 @@
         lat: 29.7604,
         offsetX: 0,
         offsetY: 0,
-        wins: 3, losses: 5, ties: 0, divRec: "1-0", confRec: "3-2", pf: 209, pa: 192, divRank: 2,
+        wins: 3, losses: 5, ties: 0, divRec: "2-1", confRec: "3-3", pf: 209, pa: 192, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
       },
       {
@@ -765,7 +783,7 @@
         lat: 39.7684,
         offsetX: 0,
         offsetY: 0,
-        wins: 2, losses: 7, ties: 0, divRec: "0-2", confRec: "1-5", pf: 184, pa: 249, divRank: 3,
+        wins: 2, losses: 7, ties: 0, divRec: "1-2", confRec: "1-5", pf: 184, pa: 249, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png"
       },
       {
@@ -781,7 +799,7 @@
         lat: 36.1627,
         offsetX: 0,
         offsetY: 0,
-        wins: 1, losses: 7, ties: 0, divRec: "1-1", confRec: "1-5", pf: 144, pa: 199, divRank: 4,
+        wins: 1, losses: 7, ties: 0, divRec: "1-1", confRec: "1-5", pf: 144, pa: 199, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png"
       },
 
@@ -799,7 +817,7 @@
         lat: 42.8864,
         offsetX: 0,
         offsetY: 0,
-        wins: 7, losses: 1, ties: 0, divRec: "1-1", confRec: "5-1", pf: 256, pa: 187, divRank: 1,
+        wins: 7, losses: 1, ties: 0, divRec: "0-1", confRec: "4-1", pf: 256, pa: 187, divRank: 1, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
       },
       {
@@ -815,7 +833,7 @@
         lat: 42.3601,
         offsetX: 0,
         offsetY: 0,
-        wins: 5, losses: 4, ties: 0, divRec: "2-0", confRec: "4-3", pf: 211, pa: 207, divRank: 2,
+        wins: 5, losses: 4, ties: 0, divRec: "3-0", confRec: "5-1", pf: 211, pa: 207, divRank: 2, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png"
       },
       {
@@ -831,7 +849,7 @@
         lat: 40.7128,
         offsetX: 12,
         offsetY: 10,
-        wins: 2, losses: 7, ties: 0, divRec: "0-1", confRec: "1-5", pf: 182, pa: 223, divRank: 3,
+        wins: 2, losses: 7, ties: 0, divRec: "0-2", confRec: "2-4", pf: 182, pa: 223, divRank: 3, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png"
       },
       {
@@ -847,10 +865,84 @@
         lat: 25.7617,
         offsetX: 0,
         offsetY: 0,
-        wins: 1, losses: 7, ties: 0, divRec: "0-1", confRec: "1-5", pf: 126, pa: 200, divRank: 4,
+        wins: 1, losses: 7, ties: 0, divRec: "1-1", confRec: "1-4", pf: 126, pa: 200, divRank: 4, clincher: "",
         logo: "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png"
       }
     ];
+
+    /**
+     * Compute or retrieve standard NFL playoff clinching/elimination status code:
+     * z = Clinched division & #1 conference seed (first-round bye)
+     * y = Clinched division title
+     * x = Clinched playoff berth
+     * e = Eliminated from playoff contention
+     */
+    function getTeamClincherCode(team) {
+      if (team.clincher && ["x", "y", "z", "e"].includes(team.clincher.toLowerCase())) {
+        return team.clincher.toLowerCase();
+      }
+
+      const TOTAL_GAMES = 17;
+      const gamesPlayed = team.wins + team.losses + team.ties;
+      const remaining = Math.max(0, TOTAL_GAMES - gamesPlayed);
+      const maxPossibleWins = team.wins + (team.ties * 0.5) + remaining;
+      const minGuaranteedWins = team.wins + (team.ties * 0.5);
+
+      const confTeams = NFL_TEAMS.filter(t => t.conference === team.conference);
+      const divTeams = confTeams.filter(t => t.division === team.division);
+
+      const otherDivTeams = divTeams.filter(t => t.id !== team.id);
+      const maxOtherDivWins = Math.max(...otherDivTeams.map(t =>
+        t.wins + (t.ties * 0.5) + Math.max(0, TOTAL_GAMES - (t.wins + t.losses + t.ties))
+      ));
+
+      const otherConfTeams = confTeams.filter(t => t.id !== team.id);
+      const maxOtherConfWins = Math.max(...otherConfTeams.map(t =>
+        t.wins + (t.ties * 0.5) + Math.max(0, TOTAL_GAMES - (t.wins + t.losses + t.ties))
+      ));
+
+      if (minGuaranteedWins > maxOtherConfWins) return "z";
+      if (minGuaranteedWins > maxOtherDivWins) return "y";
+
+      const confMaxPossibleSorted = otherConfTeams
+        .map(t => t.wins + (t.ties * 0.5) + Math.max(0, TOTAL_GAMES - (t.wins + t.losses + t.ties)))
+        .sort((a, b) => b - a);
+      if (confMaxPossibleSorted.length >= 7 && minGuaranteedWins > confMaxPossibleSorted[6]) {
+        return "x";
+      }
+
+      const divLeaderGuaranteed = Math.max(...divTeams.map(t => t.wins + (t.ties * 0.5)));
+      const confMinGuaranteedSorted = confTeams
+        .map(t => t.wins + (t.ties * 0.5))
+        .sort((a, b) => b - a);
+      const seventhSpotGuaranteed = confMinGuaranteedSorted[6] || 0;
+
+      if (maxPossibleWins < divLeaderGuaranteed && maxPossibleWins < seventhSpotGuaranteed) {
+        return "e";
+      }
+
+      return "";
+    }
+
+    /**
+     * Compute Games Back (GB) relative to the table leader (top-ranked team).
+     * Handles unequal games played accurately:
+     * GB = ((leader.wins - team.wins) + (team.losses - leader.losses)) / 2
+     * Renders "-" for 0, integer for whole games, and "½" (never "0.5") for half games.
+     */
+    function formatGamesBack(leader, team) {
+      if (!leader || leader.id === team.id) return "-";
+      const halfGamesDiff = (leader.wins - team.wins) + (team.losses - leader.losses);
+      if (halfGamesDiff <= 0) return "-";
+
+      const whole = Math.floor(halfGamesDiff / 2);
+      const hasHalf = (halfGamesDiff % 2) !== 0;
+
+      if (hasHalf) {
+        return whole > 0 ? `${whole}½` : "½";
+      }
+      return `${whole}`;
+    }
 
     /**
      * Verified 2026 International Series Games
@@ -900,6 +992,7 @@
     let currentWeekNumber = 10;
     let currentWeekGames = [];
     let liveRefreshIntervalId = null;
+    let currentLiveRefreshMs = null;
     const scheduledKickoffTimers = new Set();
 
     const EMBEDDED_GAMES = [
@@ -920,7 +1013,7 @@
       { week: 9, away: "tb", home: "chi", awayScore: 24, homeScore: 27, status: "FINAL", startISO: "2026-11-09T01:20:00Z" },
       { week: 9, away: "buf", home: "min", awayScore: 23, homeScore: 6, status: "FINAL", startISO: "2026-11-10T01:15:00Z" },
       // Week 10 Slate
-      { week: 10, away: "wsh", home: "nyg", awayScore: null, homeScore: null, status: "UPCOMING", startISO: "2026-11-13T01:15:00Z" },
+      { week: 10, away: "wsh", home: "nyg", awayScore: 21, homeScore: 14, status: "FINAL", startISO: "2026-11-13T01:15:00Z" },
       { week: 10, away: "ne", home: "det", awayScore: null, homeScore: null, status: "UPCOMING", startISO: "2026-11-15T14:30:00Z", isIntl: true },
       { week: 10, away: "car", home: "no", awayScore: null, homeScore: null, status: "UPCOMING", startISO: "2026-11-15T18:00:00Z" },
       { week: 10, away: "mia", home: "ind", awayScore: null, homeScore: null, status: "UPCOMING", startISO: "2026-11-15T18:00:00Z" },
@@ -950,22 +1043,47 @@
       { week: 11, away: "cin", home: "wsh", awayScore: null, homeScore: null, status: "UPCOMING", startISO: "2026-11-24T01:15:00Z" }
     ];
 
+    function isCloseLateGame(game) {
+      if (game.status !== "LIVE") return false;
+      const period = Number(game.period) || 0;
+      const clockUpper = (game.clockStr || "").toUpperCase();
+      const isLatePeriod = period >= 4 || /\b(4TH|Q4|OT|OVERTIME)\b/.test(clockUpper);
+      if (!isLatePeriod) return false;
+
+      const awayPts = Number(game.awayScore);
+      const homePts = Number(game.homeScore);
+      if (isNaN(awayPts) || isNaN(homePts)) return false;
+
+      return Math.abs(awayPts - homePts) <= 8;
+    }
+
     function configureAutoRefresh(gamesList) {
-      const hasLiveGames = gamesList.some(g => g.status === "LIVE");
+      const liveGames = gamesList.filter(g => g.status === "LIVE");
+      const hasLiveGames = liveGames.length > 0;
+      const hasCloseLateGame = liveGames.some(isCloseLateGame);
       const liveBadge = document.getElementById("weekly-live-indicator");
 
       if (hasLiveGames) {
-        if (liveBadge) liveBadge.classList.remove("hidden");
-        if (!liveRefreshIntervalId) {
+        const desiredIntervalMs = hasCloseLateGame ? (60 * 1000) : (5 * 60 * 1000);
+        if (liveBadge) {
+          liveBadge.classList.remove("hidden");
+          liveBadge.textContent = hasCloseLateGame
+            ? "CRUNCH TIME • 1M AUTO-REFRESH"
+            : "LIVE GAMES ACTIVE";
+        }
+        if (!liveRefreshIntervalId || currentLiveRefreshMs !== desiredIntervalMs) {
+          if (liveRefreshIntervalId) clearInterval(liveRefreshIntervalId);
+          currentLiveRefreshMs = desiredIntervalMs;
           liveRefreshIntervalId = setInterval(() => {
             performAutoRefreshReload();
-          }, 5 * 60 * 1000);
+          }, desiredIntervalMs);
         }
       } else {
         if (liveBadge) liveBadge.classList.add("hidden");
         if (liveRefreshIntervalId) {
           clearInterval(liveRefreshIntervalId);
           liveRefreshIntervalId = null;
+          currentLiveRefreshMs = null;
         }
       }
 
@@ -1012,6 +1130,7 @@
           const comp = ev.competitions?.[0];
           if (!comp) return;
           const state = comp.status?.type?.state;
+          const period = comp.status?.period || 0;
           const shortDetail = comp.status?.type?.shortDetail || "";
           const venueCountry = comp.venue?.address?.country;
           const competitors = comp.competitors || [];
@@ -1038,6 +1157,7 @@
             awayScore: status !== "UPCOMING" ? awayScore : null,
             homeScore: status !== "UPCOMING" ? homeScore : null,
             status,
+            period,
             clockStr: shortDetail,
             startISO: ev.date,
             isIntl: intl
@@ -1058,6 +1178,7 @@
                 isHome: myComp.homeAway === "home",
                 oppId,
                 scoreStr: `${myScore}-${oppScore}`,
+                period,
                 clockStr: shortDetail || "IN PROGRESS"
               };
             } else {
@@ -1245,9 +1366,6 @@
       }
     }
 
-    /**
-     * Render the 18-week schedule grid inside the Team Card
-     */
     async function renderTeamScheduleInCard(team) {
       const grid = document.getElementById("card-schedule-grid");
       const statusBadge = document.getElementById("schedule-status-badge");
@@ -1472,6 +1590,7 @@
               const pa = getStat("pointsAgainst");
               const divRec = getDisplay("Division", "vsdiv");
               const confRec = getDisplay("vs. Conf.", "vsconf");
+              const clincherVal = getDisplay("clincher", "clincher");
 
               if (w !== undefined) teamObj.wins = w;
               if (l !== undefined) teamObj.losses = l;
@@ -1480,6 +1599,7 @@
               if (pa !== undefined) teamObj.pa = pa;
               if (divRec) teamObj.divRec = divRec;
               if (confRec) teamObj.confRec = confRec;
+              if (clincherVal) teamObj.clincher = clincherVal.toLowerCase();
             }
           });
         });
@@ -1500,6 +1620,7 @@
 
     let currentConference = "BOTH";
     let currentDivision = "ALL";
+    let sortByDivision = false;
     let pinnedTeam = null;
     let currentDisplayedTeamId = null;
 
@@ -1696,7 +1817,9 @@
 
     async function showHoverCard(team) {
       currentDisplayedTeamId = team.id;
-      document.getElementById("card-team-name").textContent = team.name;
+      const clincherCode = getTeamClincherCode(team);
+      const clincherPrefix = clincherCode ? `${clincherCode} - ` : "";
+      document.getElementById("card-team-name").textContent = `${clincherPrefix}${team.name}`;
       
       const confBadge = document.getElementById("card-conf-badge");
       confBadge.textContent = team.conference;
@@ -1709,6 +1832,9 @@
       const liveGame = liveGamesByTeam[team.id];
       const liveText = liveGame ? ` • LIVE ${liveGame.scoreStr} (${liveGame.clockStr})` : "";
       document.getElementById("card-record-badge").textContent = `${formatRecord(team)} (${team.divRec} DIV)${liveText}`;
+
+      const espnLink = document.getElementById("card-espn-link");
+      espnLink.href = `https://www.espn.com/nfl/team/_/name/${team.id}`;
       
       document.getElementById("card-logo").src = logoBase64Cache[team.id] || team.logo;
       document.getElementById("card-metro").textContent = team.metro;
@@ -1782,6 +1908,11 @@
       renderStandings();
     }
 
+    function toggleSortByDivision(checked) {
+      sortByDivision = Boolean(checked);
+      renderStandings();
+    }
+
     function applyFilters() {
       d3.selectAll(".team-marker").each(function() {
         const item = d3.select(this);
@@ -1819,9 +1950,10 @@
       header.className = `px-4 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-between text-white ${headerBgClass}`;
       header.innerHTML = `
         <span class="text-sm">${title}</span>
-        <div class="flex items-center gap-3 sm:gap-4 text-[11px] opacity-90 font-semibold font-mono">
+        <div class="flex items-center gap-2.5 sm:gap-3.5 text-[11px] opacity-90 font-semibold font-mono">
           <span class="w-12 text-right">W-L-T</span>
           <span class="w-10 text-right">PCT</span>
+          <span class="w-8 text-right">GB</span>
           <span class="w-12 text-right">DIV</span>
           <span class="w-12 text-right">CONF</span>
           <span class="w-8 text-right">PF</span>
@@ -1832,6 +1964,8 @@
 
       const list = document.createElement("div");
       list.className = "divide-y divide-slate-200/80 text-xs";
+
+      const leader = teamsList[0] || null;
 
       teamsList.forEach((team, index) => {
         const row = document.createElement("div");
@@ -1844,16 +1978,22 @@
         const logoSrc = logoBase64Cache[team.id] || team.logo;
         const winPctVal = getWinPct(team);
         const pctStr = winPctVal === 1 ? "1.000" : winPctVal.toFixed(3).replace(/^0/, '');
+        const gbStr = formatGamesBack(leader, team);
+        const clincherCode = getTeamClincherCode(team);
+        const clincherPrefixHtml = clincherCode
+          ? `<span class="font-mono font-bold text-slate-500 mr-1">${clincherCode}-</span>`
+          : "";
 
         row.innerHTML = `
           <div class="flex items-center gap-2.5 min-w-0 pr-2">
             <span class="text-[11px] font-bold text-slate-400 w-4">${index + 1}</span>
             <img src="${logoSrc}" alt="${team.name}" class="w-6 h-6 object-contain flex-shrink-0" />
-            <span class="font-semibold text-slate-800 truncate">${team.name}</span>
+            <span class="font-semibold text-slate-800 truncate">${clincherPrefixHtml}${team.name}</span>
           </div>
-          <div class="flex items-center gap-3 sm:gap-4 flex-shrink-0 font-mono text-xs">
+          <div class="flex items-center gap-2.5 sm:gap-3.5 flex-shrink-0 font-mono text-xs">
             <span class="w-12 text-right font-bold text-slate-900">${formatRecord(team)}</span>
             <span class="w-10 text-right text-slate-600">${pctStr}</span>
+            <span class="w-8 text-right text-slate-600 font-semibold">${gbStr}</span>
             <span class="w-12 text-right text-slate-600">${team.divRec || '-'}</span>
             <span class="w-12 text-right text-slate-600">${team.confRec || '-'}</span>
             <span class="w-8 text-right text-slate-500">${team.pf}</span>
@@ -1871,34 +2011,54 @@
       const container = document.getElementById("standings-container");
       container.innerHTML = "";
 
-      if (currentDivision === "ALL") {
-        if (currentConference === "BOTH") {
-          const sortedLeague = sortTeamsByStandings(NFL_TEAMS);
-          container.appendChild(
-            createStandingsCard("NFL League Standings (32 Teams)", "bg-slate-800", sortedLeague)
+      // NFC first, then AFC; divisions ordered: West, North, South, East
+      const targetConferences = currentConference === "BOTH" ? ["NFC", "AFC"] : [currentConference];
+      const divisionOrder = ["West", "North", "South", "East"];
+
+      // If a specific division is selected in the picker, show only that division
+      if (currentDivision !== "ALL") {
+        targetConferences.forEach(conf => {
+          const divTeams = sortTeamsByStandings(
+            NFL_TEAMS.filter(t => t.conference === conf && t.division === currentDivision)
           );
-        } else {
-          const confTeams = NFL_TEAMS.filter(t => t.conference === currentConference);
-          const sortedConf = sortTeamsByStandings(confTeams);
-          const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
+          const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
           container.appendChild(
-            createStandingsCard(`${currentConference} Conference Standings (16 Teams)`, bgClass, sortedConf)
+            createStandingsCard(`${conf} ${currentDivision} Standings`, bgClass, divTeams)
           );
-        }
+        });
         return;
       }
 
-      const targetConferences = currentConference === "BOTH" ? ["AFC", "NFC"] : [currentConference];
+      // When "All" is selected and "Sort by division" is checked, show NFC first and divisions West, North, South, East
+      if (sortByDivision) {
+        targetConferences.forEach(conf => {
+          const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
+          divisionOrder.forEach(div => {
+            const divTeams = sortTeamsByStandings(
+              NFL_TEAMS.filter(t => t.conference === conf && t.division === div)
+            );
+            container.appendChild(
+              createStandingsCard(`${conf} ${div} Standings`, bgClass, divTeams)
+            );
+          });
+        });
+        return;
+      }
 
-      targetConferences.forEach(conf => {
-        const divTeams = sortTeamsByStandings(
-          NFL_TEAMS.filter(t => t.conference === conf && t.division === currentDivision)
-        );
-        const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
+      // Default unified League or Conference standings
+      if (currentConference === "BOTH") {
+        const sortedLeague = sortTeamsByStandings(NFL_TEAMS);
         container.appendChild(
-          createStandingsCard(`${conf} ${currentDivision} Standings`, bgClass, divTeams)
+          createStandingsCard("NFL League Standings (32 Teams)", "bg-slate-800", sortedLeague)
         );
-      });
+      } else {
+        const confTeams = NFL_TEAMS.filter(t => t.conference === currentConference);
+        const sortedConf = sortTeamsByStandings(confTeams);
+        const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
+        container.appendChild(
+          createStandingsCard(`${currentConference} Conference Standings (16 Teams)`, bgClass, sortedConf)
+        );
+      }
     }
 
     function hideLoader() {
