@@ -1123,6 +1123,13 @@
       });
     }
 
+    // Split ESPN's spread text (e.g. "LAR -9.5") into the favorite's team id ("lar") and its line ("-9.5").
+    // Returns null when there is no line or no clear favorite (e.g. "EVEN" for a pick'em).
+    function parseSpread(details) {
+      const m = /^([A-Za-z]+)\s+(-\d+(?:\.\d+)?)$/.exec((details || "").trim());
+      return m ? { team: m[1].toLowerCase(), line: m[2] } : null;
+    }
+
     async function syncLiveScoreboard() {
       try {
         const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard");
@@ -1170,7 +1177,8 @@
             clockStr: shortDetail,
             startISO: ev.date,
             isIntl: intl,
-            venueCity: comp.venue?.address?.city || null  // fallback label for international games missing from INTERNATIONAL_MATCHUPS
+            venueCity: comp.venue?.address?.city || null,  // fallback label for international games missing from INTERNATIONAL_MATCHUPS
+            spread: parseSpread(comp.odds?.[0]?.details)  // { team, line } for the favorite; null once a game is final (ESPN drops odds)
           });
 
           competitors.forEach(myComp => {
@@ -1545,6 +1553,11 @@
         const awayBold = g.status !== "UPCOMING" && Number(g.awayScore) > Number(g.homeScore) ? "font-extrabold text-slate-950" : "font-semibold text-slate-700";
         const homeBold = g.status !== "UPCOMING" && Number(g.homeScore) > Number(g.awayScore) ? "font-extrabold text-slate-950" : "font-semibold text-slate-700";
 
+        // Point spread shown after the favored team's name, e.g. "Rams -9.5"
+        const spreadHtml = (teamId) => g.spread && g.spread.team === teamId
+          ? ` <span class="font-mono text-[11px] font-normal text-slate-500">${g.spread.line}</span>`
+          : "";
+
         const tile = document.createElement("div");
         tile.className = `weekly-game-tile border ${cardBorder} rounded-xl p-3 shadow-2xs flex flex-col gap-2 transition hover:border-blue-300`;
 
@@ -1557,7 +1570,7 @@
             <div class="flex items-center justify-between cursor-pointer hover:text-blue-600" data-team-id="${g.away}">
               <div class="flex items-center gap-2 min-w-0">
                 ${awayLogo ? `<img src="${awayLogo}" alt="${awayName}" class="w-5 h-5 object-contain flex-shrink-0">` : ""}
-                <span class="${awayBold} truncate">${awayName}</span>
+                <span class="${awayBold} truncate">${awayName}${spreadHtml(g.away)}</span>
               </div>
               <span class="font-mono ${g.status !== "UPCOMING" ? "text-sm font-bold text-slate-900" : "text-[11px] text-slate-400"}">${awayScoreDisplay}</span>
             </div>
@@ -1565,7 +1578,7 @@
               <div class="flex items-center gap-2 min-w-0">
                 <span class="text-[10px] font-semibold text-slate-400 w-3 text-center">${atSymbol}</span>
                 ${homeLogo ? `<img src="${homeLogo}" alt="${homeName}" class="w-5 h-5 object-contain flex-shrink-0">` : ""}
-                <span class="${homeBold} truncate">${homeName}</span>
+                <span class="${homeBold} truncate">${homeName}${spreadHtml(g.home)}</span>
               </div>
               <span class="font-mono ${g.status !== "UPCOMING" ? "text-sm font-bold text-slate-900" : "text-[11px] text-slate-400"}">${homeScoreDisplay}</span>
             </div>
