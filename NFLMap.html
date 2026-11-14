@@ -79,15 +79,21 @@
       box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
       border-color: #0f172a;
     }
+    /* Keep selected picker text white on hover; otherwise Tailwind's hover:text-slate-900 turns it dark on the dark background */
+    .conf-btn.active:hover,
+    .division-btn.active:hover {
+      color: #ffffff;
+    }
 
-    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 900px wide */
+    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 960px wide (narrowest width where both cards fit without scrolling).
+       minmax(0, 1fr) keeps columns equal width: a card's content can never widen its column. */
     .standings-two-col {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 1.5rem;
       width: 100%;
     }
-    @media (min-width: 900px) {
+    @media (min-width: 960px) {
       .standings-two-col {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -157,7 +163,7 @@
   <section class="max-w-[1400px] w-full mx-auto px-4 py-6 flex flex-col gap-6">
     
     <!-- Team Hover / Selection Card -->
-    <div id="team-info-wrapper" class="w-full flex justify-center">
+    <div id="team-info-wrapper" class="w-full flex justify-center scroll-mt-20">
       <!-- Empty state prompt -->
       <div id="hover-card-empty" class="w-full max-w-6xl bg-white/70 border border-dashed border-slate-300 rounded-2xl px-6 py-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
@@ -182,8 +188,9 @@
                 </a>
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span id="card-conf-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></span>
-                <span id="card-division-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></span>
+                <!-- Clicking a badge switches the standings to that conference / division (handlers set in showHoverCard) -->
+                <button type="button" id="card-conf-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></button>
+                <button type="button" id="card-division-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white"></button>
               </div>
             </div>
           </div>
@@ -228,16 +235,16 @@
     </div>
 
     <!-- Conference & Division Pickers + Sort by Division Checkbox (Directly above Standings) -->
-    <div id="filter-controls-wrapper" class="flex items-center justify-center gap-2.5 flex-wrap pt-1">
+    <div id="filter-controls-wrapper" class="flex items-center justify-center gap-2.5 flex-wrap pt-1 scroll-mt-20">
       <div class="bg-white p-1 rounded-xl border border-slate-200 flex items-center text-xs font-semibold gap-1 shadow-xs">
         <button onclick="setConference('BOTH')" id="conf-both" class="conf-btn active px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-slate-400"></span>Both (32)
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span>Both
         </button>
         <button onclick="setConference('AFC')" id="conf-afc" class="conf-btn conf-btn-afc px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-red-500"></span>AFC (16)
+          <span class="w-2 h-2 rounded-full bg-red-500"></span>AFC
         </button>
         <button onclick="setConference('NFC')" id="conf-nfc" class="conf-btn px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 border border-transparent transition flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-blue-500"></span>NFC (16)
+          <span class="w-2 h-2 rounded-full bg-blue-500"></span>NFC
         </button>
       </div>
 
@@ -245,7 +252,7 @@
 
       <!-- Sort by Division Checkbox -->
       <label class="bg-white px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-2 text-xs font-semibold text-slate-700 shadow-xs cursor-pointer hover:bg-slate-50 transition">
-        <input type="checkbox" id="sort-by-division-checkbox" onchange="toggleSortByDivision(this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+        <input type="checkbox" id="sort-by-division-checkbox" autocomplete="off" onchange="toggleSortByDivision(this.checked)" class="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
         <span>Sort by division</span>
       </label>
     </div>
@@ -280,6 +287,8 @@
         <div id="weekly-games-grid" class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 bg-slate-50/50">
           <!-- Dynamically populated via renderThisWeeksGames() -->
         </div>
+        <!-- Tiles list away team first, home team second (no "@" marker) -->
+        <p class="px-4 pb-3 text-[11px] text-slate-500 bg-slate-50/50">The home team is always listed second.</p>
       </div>
     </div>
 
@@ -1526,7 +1535,6 @@
         const homeLogo = homeTeam ? (logoBase64Cache[homeTeam.id] || homeTeam.logo) : "";
 
         const isIntl = g.isIntl || isInternationalGame(g.week, g.away, g.home);
-        const atSymbol = isIntl ? "@*" : "@";
         // International games show the host city in the tile header instead of a generic "INTL" tag
         const intlLabel = isIntl
           ? (getInternationalCity(g.week, g.away, g.home) || g.venueCity || "INTL")
@@ -1576,7 +1584,6 @@
             </div>
             <div class="flex items-center justify-between cursor-pointer hover:text-blue-600" data-team-id="${g.home}">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="text-[10px] font-semibold text-slate-400 w-3 text-center">${atSymbol}</span>
                 ${homeLogo ? `<img src="${homeLogo}" alt="${homeName}" class="w-5 h-5 object-contain flex-shrink-0">` : ""}
                 <span class="${homeBold} truncate">${homeName}${spreadHtml(g.home)}</span>
               </div>
@@ -1589,7 +1596,7 @@
           rowEl.addEventListener("click", (e) => {
             e.stopPropagation();
             const tObj = NFL_TEAMS.find(t => t.id === rowEl.getAttribute("data-team-id"));
-            if (tObj) selectAndFocusTeam(tObj);
+            if (tObj) selectAndFocusTeam(tObj, true);
           });
         });
 
@@ -1650,7 +1657,14 @@
 
     let currentConference = "BOTH";
     let currentDivision = "ALL";
+    // "Sort by division" is remembered in this browser across reloads and visits
+    const SORT_BY_DIVISION_KEY = "nfl_map_sort_by_division";
     let sortByDivision = false;
+    try {
+      sortByDivision = localStorage.getItem(SORT_BY_DIVISION_KEY) === "true";
+    } catch (e) {}
+    // Set the checkbox from the saved value (the browser may otherwise restore a stale checked state on reload)
+    document.getElementById("sort-by-division-checkbox").checked = sortByDivision;
     let pinnedTeam = null;
     let currentDisplayedTeamId = null;
 
@@ -1837,12 +1851,14 @@
       return total > 0 ? (team.wins + 0.5 * team.ties) / total : 0;
     }
 
-    function selectAndFocusTeam(team) {
+    // scrollToCard: true when picked by name (standings row, this week's games) -> scroll up so the whole card shows;
+    // map logo clicks keep the minimal "nearest" scroll so the map stays in view
+    function selectAndFocusTeam(team, scrollToCard = false) {
       pinnedTeam = team;
       d3.selectAll(".team-marker").classed("selected", false);
       d3.select(`#marker-${team.id}`).classed("selected", true);
       showHoverCard(team);
-      document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document.getElementById("team-info-wrapper").scrollIntoView({ behavior: "smooth", block: scrollToCard ? "start" : "nearest" });
     }
 
     async function showHoverCard(team) {
@@ -1853,11 +1869,25 @@
       
       const confBadge = document.getElementById("card-conf-badge");
       confBadge.textContent = team.conference;
-      confBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${team.conference === 'AFC' ? 'bg-red-600' : 'bg-blue-600'}`;
+      confBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white cursor-pointer hover:opacity-80 transition ${team.conference === 'AFC' ? 'bg-red-600' : 'bg-blue-600'}`;
+      confBadge.title = `Show ${team.conference} standings`;
+      // Conference badge: show the whole conference (clear any division filter)
+      confBadge.onclick = () => {
+        setConference(team.conference);
+        setDivision("ALL");
+        scrollToStandings();
+      };
 
       const divBadge = document.getElementById("card-division-badge");
       divBadge.textContent = `${team.conference} ${team.division}`;
-      divBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${team.conference === 'AFC' ? 'bg-red-800' : 'bg-blue-800'}`;
+      divBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white cursor-pointer hover:opacity-80 transition ${team.conference === 'AFC' ? 'bg-red-800' : 'bg-blue-800'}`;
+      divBadge.title = `Show ${team.conference} ${team.division} standings`;
+      // Division badge: switch to the team's conference, then to its division
+      divBadge.onclick = () => {
+        setConference(team.conference);
+        setDivision(team.division);
+        scrollToStandings();
+      };
 
       const liveGame = liveGamesByTeam[team.id];
       const liveText = liveGame ? ` • LIVE ${liveGame.scoreStr} (${liveGame.clockStr})` : "";
@@ -1876,6 +1906,11 @@
       hoverCard.classList.remove("hidden");
 
       await renderTeamScheduleInCard(team);
+    }
+
+    // Bring the standings pickers (and the standings below them) into view; scroll-mt-20 keeps them clear of the sticky header
+    function scrollToStandings() {
+      document.getElementById("filter-controls-wrapper").scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function hideHoverCard() {
@@ -1900,23 +1935,13 @@
       const group = document.getElementById("division-filter-group");
       group.innerHTML = "";
 
-      let labelPrefix = "";
-      let allLabel = "All (32)";
-
-      if (currentConference === "AFC") {
-        labelPrefix = "AFC ";
-        allLabel = "All AFC (16)";
-      } else if (currentConference === "NFC") {
-        labelPrefix = "NFC ";
-        allLabel = "All NFC (16)";
-      }
-
+      // Plain labels: no team counts and no conference prefix (the conference picker shows which one is selected)
       const divisions = [
-        { key: "ALL", label: allLabel },
-        { key: "West", label: `${labelPrefix}West` },
-        { key: "North", label: `${labelPrefix}North` },
-        { key: "South", label: `${labelPrefix}South` },
-        { key: "East", label: `${labelPrefix}East` }
+        { key: "ALL", label: "All" },
+        { key: "West", label: "West" },
+        { key: "North", label: "North" },
+        { key: "South", label: "South" },
+        { key: "East", label: "East" }
       ];
 
       divisions.forEach(d => {
@@ -1940,6 +1965,9 @@
 
     function toggleSortByDivision(checked) {
       sortByDivision = Boolean(checked);
+      try {
+        localStorage.setItem(SORT_BY_DIVISION_KEY, String(sortByDivision));
+      } catch (e) {}
       renderStandings();
     }
 
@@ -1974,8 +2002,10 @@
 
     /**
      * Build a standings card.
-     * - Team name column has a strict minimum width of 13ch and never shrinks into stat columns.
-     * - Stat columns are compact so all columns fit cleanly without overlapping.
+     * - Header and rows are grids sharing one column template, so columns stay aligned at any width.
+     * - Team name column keeps a fixed minimum (about 13 characters) and never shrinks into stat columns.
+     * - Stat columns shrink from their preferred width toward a minimum when the window is narrow.
+     * - Only if even the minimum widths don't fit does the card scroll sideways.
      * @param {string} title
      * @param {string} headerBgClass
      * @param {Array} teamsList
@@ -1985,37 +2015,56 @@
       const card = document.createElement("div");
       card.className = "bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-md w-full max-w-2xl mx-auto flex flex-col";
 
-      const leftColMinWidth = showRank
-        ? "min-w-[calc(13ch+3.75rem)]"
-        : "min-w-[calc(13ch+2.25rem)]";
+      // Header and rows live in one wrapper so they always have the same width, even when the card scrolls
+      const inner = document.createElement("div");
+      inner.className = "min-w-min";
+
+      // One column template shared by the header and every row, so columns always line up.
+      // Each column is minmax(smallest, preferred): stat columns shrink toward their smallest width before
+      // the card has to scroll. The team column's minimum (10.75rem, about 13 characters plus the logo; 12.25rem
+      // with a rank number) holds its place; it only grows once the stat columns are at full width.
+      const colTemplate = [
+        showRank ? "minmax(12.25rem, 1fr)" : "minmax(10.75rem, 1fr)",  // team
+        // Preferred widths include 0.25rem of spacing (values are right-aligned), so the space
+        // between columns also shrinks away on narrow windows; the fixed gap is kept small
+        "minmax(2.25rem, 3rem)",      // W-L-T
+        "minmax(1.875rem, 2.5rem)",   // PCT
+        "minmax(1.375rem, 2rem)",     // GB
+        "minmax(2.25rem, 3rem)",      // DIV
+        "minmax(2.25rem, 3rem)",      // CONF
+        "minmax(1.375rem, 2rem)",     // PF
+        "minmax(1.375rem, 2rem)"      // PA
+      ].join(" ");
+      const gridClass = "grid items-center gap-x-1.5";
 
       const header = document.createElement("div");
-      header.className = `px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2 text-white min-w-max ${headerBgClass}`;
+      header.className = `${gridClass} px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white ${headerBgClass}`;
+      header.style.gridTemplateColumns = colTemplate;
+      const headerStat = "text-right text-[11px] opacity-90 font-semibold font-mono";
       header.innerHTML = `
-        <span class="text-sm flex-1 ${leftColMinWidth}">${title}</span>
-        <div class="flex items-center gap-1.5 sm:gap-2.5 text-[11px] opacity-90 font-semibold font-mono flex-shrink-0">
-          <span class="w-11 text-right">W-L-T</span>
-          <span class="w-9 text-right">PCT</span>
-          <span class="w-7 text-right">GB</span>
-          <span class="w-11 text-right">DIV</span>
-          <span class="w-11 text-right">CONF</span>
-          <span class="w-7 text-right">PF</span>
-          <span class="w-7 text-right">PA</span>
-        </div>
+        <div class="min-w-0 pr-1"><span class="text-sm">${title}</span></div>
+        <span class="${headerStat}">W-L-T</span>
+        <span class="${headerStat}">PCT</span>
+        <span class="${headerStat}">GB</span>
+        <span class="${headerStat}">DIV</span>
+        <span class="${headerStat}">CONF</span>
+        <span class="${headerStat}">PF</span>
+        <span class="${headerStat}">PA</span>
       `;
-      card.appendChild(header);
+      inner.appendChild(header);
 
       const list = document.createElement("div");
-      list.className = "divide-y divide-slate-200/80 text-xs min-w-max";
+      list.className = "divide-y divide-slate-200/80 text-xs";
 
       const leader = teamsList[0] || null;
 
       teamsList.forEach((team, index) => {
         const row = document.createElement("div");
-        row.className = "standings-team-row px-3.5 py-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 transition cursor-pointer";
+        row.className = `standings-team-row ${gridClass} px-3.5 py-2.5 hover:bg-slate-50 transition cursor-pointer`;
+        row.style.gridTemplateColumns = colTemplate;
         row.onclick = (e) => {
           e.stopPropagation();
-          selectAndFocusTeam(team);
+          selectAndFocusTeam(team, true);
         };
 
         const logoSrc = logoBase64Cache[team.id] || team.logo;
@@ -2031,25 +2080,24 @@
           : "";
 
         row.innerHTML = `
-          <div class="flex items-center gap-2 flex-1 ${leftColMinWidth} pr-1">
+          <div class="flex items-center gap-2 min-w-0 pr-1">
             ${rankHtml}
             <img src="${logoSrc}" alt="${team.name}" class="w-6 h-6 object-contain flex-shrink-0" />
-            <span class="font-semibold text-slate-800 truncate min-w-[13ch] block">${clincherPrefixHtml}${team.name}</span>
+            <span class="font-semibold text-slate-800 truncate min-w-0 block">${clincherPrefixHtml}${team.name}</span>
           </div>
-          <div class="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0 font-mono text-xs">
-            <span class="w-11 text-right font-bold text-slate-900">${formatRecord(team)}</span>
-            <span class="w-9 text-right text-slate-600">${pctStr}</span>
-            <span class="w-7 text-right text-slate-600 font-semibold">${gbStr}</span>
-            <span class="w-11 text-right text-slate-600">${team.divRec || '-'}</span>
-            <span class="w-11 text-right text-slate-600">${team.confRec || '-'}</span>
-            <span class="w-7 text-right text-slate-500">${team.pf}</span>
-            <span class="w-7 text-right text-slate-500">${team.pa}</span>
-          </div>
+          <span class="text-right font-mono font-bold text-slate-900">${formatRecord(team)}</span>
+          <span class="text-right font-mono text-slate-600">${pctStr}</span>
+          <span class="text-right font-mono text-slate-600 font-semibold">${gbStr}</span>
+          <span class="text-right font-mono text-slate-600">${team.divRec || '-'}</span>
+          <span class="text-right font-mono text-slate-600">${team.confRec || '-'}</span>
+          <span class="text-right font-mono text-slate-500">${team.pf}</span>
+          <span class="text-right font-mono text-slate-500">${team.pa}</span>
         `;
         list.appendChild(row);
       });
 
-      card.appendChild(list);
+      inner.appendChild(list);
+      card.appendChild(inner);
       return card;
     }
 
@@ -2057,7 +2105,7 @@
       const container = document.getElementById("standings-container");
       container.innerHTML = "";
 
-      // NFC first (left column at >=900px), AFC second (right column at >=900px); divisions: West, North, South, East
+      // NFC first (left column at >=960px), AFC second (right column at >=960px); divisions: West, North, South, East
       const divisionOrder = ["West", "North", "South", "East"];
 
       // Specific division selected -> omit ranking numbers (showRank = false)
@@ -2097,7 +2145,7 @@
 
           ["NFC", "AFC"].forEach(conf => {
             const confCol = document.createElement("div");
-            confCol.className = "flex flex-col gap-6";
+            confCol.className = "flex flex-col gap-6 min-w-0";  // min-w-0: column width never grows to fit card content
             const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
 
             divisionOrder.forEach(div => {
