@@ -80,6 +80,19 @@
       border-color: #0f172a;
     }
 
+    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 900px wide */
+    .standings-two-col {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      width: 100%;
+    }
+    @media (min-width: 900px) {
+      .standings-two-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -870,13 +883,6 @@
       }
     ];
 
-    /**
-     * Compute or retrieve standard NFL playoff clinching/elimination status code:
-     * z = Clinched division & #1 conference seed (first-round bye)
-     * y = Clinched division title
-     * x = Clinched playoff berth
-     * e = Eliminated from playoff contention
-     */
     function getTeamClincherCode(team) {
       if (team.clincher && ["x", "y", "z", "e"].includes(team.clincher.toLowerCase())) {
         return team.clincher.toLowerCase();
@@ -924,12 +930,6 @@
       return "";
     }
 
-    /**
-     * Compute Games Back (GB) relative to the table leader (top-ranked team).
-     * Handles unequal games played accurately:
-     * GB = ((leader.wins - team.wins) + (team.losses - leader.losses)) / 2
-     * Renders "-" for 0, integer for whole games, and "½" (never "0.5") for half games.
-     */
     function formatGamesBack(leader, team) {
       if (!leader || leader.id === team.id) return "-";
       const halfGamesDiff = (leader.wins - team.wins) + (team.losses - leader.losses);
@@ -944,9 +944,6 @@
       return `${whole}`;
     }
 
-    /**
-     * Verified 2026 International Series Games
-     */
     const INTERNATIONAL_MATCHUPS = [
       { week: 1, teams: ["sf", "lar"], city: "Melbourne, Australia" },
       { week: 3, teams: ["bal", "dal"], city: "Rio de Janeiro, Brazil" },
@@ -1942,34 +1939,47 @@
       });
     }
 
-    function createStandingsCard(title, headerBgClass, teamsList) {
+    /**
+     * Build a standings card.
+     * - Team name column has a strict minimum width of 13ch and never shrinks into stat columns.
+     * - Stat columns are compact so all columns fit cleanly without overlapping.
+     * @param {string} title
+     * @param {string} headerBgClass
+     * @param {Array} teamsList
+     * @param {boolean} showRank - False for single-division cards (4 teams), true for longer conference/league lists
+     */
+    function createStandingsCard(title, headerBgClass, teamsList, showRank = false) {
       const card = document.createElement("div");
-      card.className = "bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-md w-full max-w-2xl flex flex-col";
+      card.className = "bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-md w-full max-w-2xl mx-auto flex flex-col";
+
+      const leftColMinWidth = showRank
+        ? "min-w-[calc(13ch+3.75rem)]"
+        : "min-w-[calc(13ch+2.25rem)]";
 
       const header = document.createElement("div");
-      header.className = `px-4 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-between text-white ${headerBgClass}`;
+      header.className = `px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2 text-white min-w-max ${headerBgClass}`;
       header.innerHTML = `
-        <span class="text-sm">${title}</span>
-        <div class="flex items-center gap-2.5 sm:gap-3.5 text-[11px] opacity-90 font-semibold font-mono">
-          <span class="w-12 text-right">W-L-T</span>
-          <span class="w-10 text-right">PCT</span>
-          <span class="w-8 text-right">GB</span>
-          <span class="w-12 text-right">DIV</span>
-          <span class="w-12 text-right">CONF</span>
-          <span class="w-8 text-right">PF</span>
-          <span class="w-8 text-right">PA</span>
+        <span class="text-sm flex-1 ${leftColMinWidth}">${title}</span>
+        <div class="flex items-center gap-1.5 sm:gap-2.5 text-[11px] opacity-90 font-semibold font-mono flex-shrink-0">
+          <span class="w-11 text-right">W-L-T</span>
+          <span class="w-9 text-right">PCT</span>
+          <span class="w-7 text-right">GB</span>
+          <span class="w-11 text-right">DIV</span>
+          <span class="w-11 text-right">CONF</span>
+          <span class="w-7 text-right">PF</span>
+          <span class="w-7 text-right">PA</span>
         </div>
       `;
       card.appendChild(header);
 
       const list = document.createElement("div");
-      list.className = "divide-y divide-slate-200/80 text-xs";
+      list.className = "divide-y divide-slate-200/80 text-xs min-w-max";
 
       const leader = teamsList[0] || null;
 
       teamsList.forEach((team, index) => {
         const row = document.createElement("div");
-        row.className = "standings-team-row px-4 py-2.5 flex items-center justify-between hover:bg-slate-50 transition cursor-pointer";
+        row.className = "standings-team-row px-3.5 py-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 transition cursor-pointer";
         row.onclick = (e) => {
           e.stopPropagation();
           selectAndFocusTeam(team);
@@ -1983,21 +1993,24 @@
         const clincherPrefixHtml = clincherCode
           ? `<span class="font-mono font-bold text-slate-500 mr-1">${clincherCode}-</span>`
           : "";
+        const rankHtml = showRank
+          ? `<span class="text-[11px] font-bold text-slate-400 w-4 text-right flex-shrink-0">${index + 1}</span>`
+          : "";
 
         row.innerHTML = `
-          <div class="flex items-center gap-2.5 min-w-0 pr-2">
-            <span class="text-[11px] font-bold text-slate-400 w-4">${index + 1}</span>
+          <div class="flex items-center gap-2 flex-1 ${leftColMinWidth} pr-1">
+            ${rankHtml}
             <img src="${logoSrc}" alt="${team.name}" class="w-6 h-6 object-contain flex-shrink-0" />
-            <span class="font-semibold text-slate-800 truncate">${clincherPrefixHtml}${team.name}</span>
+            <span class="font-semibold text-slate-800 truncate min-w-[13ch] block">${clincherPrefixHtml}${team.name}</span>
           </div>
-          <div class="flex items-center gap-2.5 sm:gap-3.5 flex-shrink-0 font-mono text-xs">
-            <span class="w-12 text-right font-bold text-slate-900">${formatRecord(team)}</span>
-            <span class="w-10 text-right text-slate-600">${pctStr}</span>
-            <span class="w-8 text-right text-slate-600 font-semibold">${gbStr}</span>
-            <span class="w-12 text-right text-slate-600">${team.divRec || '-'}</span>
-            <span class="w-12 text-right text-slate-600">${team.confRec || '-'}</span>
-            <span class="w-8 text-right text-slate-500">${team.pf}</span>
-            <span class="w-8 text-right text-slate-500">${team.pa}</span>
+          <div class="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0 font-mono text-xs">
+            <span class="w-11 text-right font-bold text-slate-900">${formatRecord(team)}</span>
+            <span class="w-9 text-right text-slate-600">${pctStr}</span>
+            <span class="w-7 text-right text-slate-600 font-semibold">${gbStr}</span>
+            <span class="w-11 text-right text-slate-600">${team.divRec || '-'}</span>
+            <span class="w-11 text-right text-slate-600">${team.confRec || '-'}</span>
+            <span class="w-7 text-right text-slate-500">${team.pf}</span>
+            <span class="w-7 text-right text-slate-500">${team.pa}</span>
           </div>
         `;
         list.appendChild(row);
@@ -2011,52 +2024,88 @@
       const container = document.getElementById("standings-container");
       container.innerHTML = "";
 
-      // NFC first, then AFC; divisions ordered: West, North, South, East
-      const targetConferences = currentConference === "BOTH" ? ["NFC", "AFC"] : [currentConference];
+      // NFC first (left column at >=900px), AFC second (right column at >=900px); divisions: West, North, South, East
       const divisionOrder = ["West", "North", "South", "East"];
 
-      // If a specific division is selected in the picker, show only that division
+      // Specific division selected -> omit ranking numbers (showRank = false)
       if (currentDivision !== "ALL") {
-        targetConferences.forEach(conf => {
-          const divTeams = sortTeamsByStandings(
-            NFL_TEAMS.filter(t => t.conference === conf && t.division === currentDivision)
-          );
-          const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
-          container.appendChild(
-            createStandingsCard(`${conf} ${currentDivision} Standings`, bgClass, divTeams)
-          );
-        });
-        return;
-      }
+        if (currentConference === "BOTH") {
+          const gridWrapper = document.createElement("div");
+          gridWrapper.className = "standings-two-col";
 
-      // When "All" is selected and "Sort by division" is checked, show NFC first and divisions West, North, South, East
-      if (sortByDivision) {
-        targetConferences.forEach(conf => {
-          const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
-          divisionOrder.forEach(div => {
+          ["NFC", "AFC"].forEach(conf => {
             const divTeams = sortTeamsByStandings(
-              NFL_TEAMS.filter(t => t.conference === conf && t.division === div)
+              NFL_TEAMS.filter(t => t.conference === conf && t.division === currentDivision)
             );
-            container.appendChild(
-              createStandingsCard(`${conf} ${div} Standings`, bgClass, divTeams)
+            const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
+            gridWrapper.appendChild(
+              createStandingsCard(`${conf} ${currentDivision}`, bgClass, divTeams, false)
             );
           });
-        });
+
+          container.appendChild(gridWrapper);
+        } else {
+          const divTeams = sortTeamsByStandings(
+            NFL_TEAMS.filter(t => t.conference === currentConference && t.division === currentDivision)
+          );
+          const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
+          container.appendChild(
+            createStandingsCard(`${currentConference} ${currentDivision}`, bgClass, divTeams, false)
+          );
+        }
         return;
       }
 
-      // Default unified League or Conference standings
+      // "All" selected + "Sort by division" checked -> division cards, omit ranking numbers (showRank = false)
+      if (sortByDivision) {
+        if (currentConference === "BOTH") {
+          const gridWrapper = document.createElement("div");
+          gridWrapper.className = "standings-two-col";
+
+          ["NFC", "AFC"].forEach(conf => {
+            const confCol = document.createElement("div");
+            confCol.className = "flex flex-col gap-6";
+            const bgClass = conf === "AFC" ? "bg-red-700" : "bg-blue-700";
+
+            divisionOrder.forEach(div => {
+              const divTeams = sortTeamsByStandings(
+                NFL_TEAMS.filter(t => t.conference === conf && t.division === div)
+              );
+              confCol.appendChild(
+                createStandingsCard(`${conf} ${div}`, bgClass, divTeams, false)
+              );
+            });
+
+            gridWrapper.appendChild(confCol);
+          });
+
+          container.appendChild(gridWrapper);
+        } else {
+          const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
+          divisionOrder.forEach(div => {
+            const divTeams = sortTeamsByStandings(
+              NFL_TEAMS.filter(t => t.conference === currentConference && t.division === div)
+            );
+            container.appendChild(
+              createStandingsCard(`${currentConference} ${div}`, bgClass, divTeams, false)
+            );
+          });
+        }
+        return;
+      }
+
+      // Longer conference (16 teams) or league (32 teams) lists -> keep ranking numbers (showRank = true)
       if (currentConference === "BOTH") {
         const sortedLeague = sortTeamsByStandings(NFL_TEAMS);
         container.appendChild(
-          createStandingsCard("NFL League Standings (32 Teams)", "bg-slate-800", sortedLeague)
+          createStandingsCard("NFL League (32 Teams)", "bg-slate-800", sortedLeague, true)
         );
       } else {
         const confTeams = NFL_TEAMS.filter(t => t.conference === currentConference);
         const sortedConf = sortTeamsByStandings(confTeams);
         const bgClass = currentConference === "AFC" ? "bg-red-700" : "bg-blue-700";
         container.appendChild(
-          createStandingsCard(`${currentConference} Conference Standings (16 Teams)`, bgClass, sortedConf)
+          createStandingsCard(`${currentConference} Conference (16 Teams)`, bgClass, sortedConf, true)
         );
       }
     }
