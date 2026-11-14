@@ -271,7 +271,11 @@
             <span id="weekly-games-title" class="text-sm font-bold uppercase tracking-wider">This Week's Games (Week 10)</span>
             <span id="weekly-live-indicator" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">LIVE GAMES ACTIVE</span>
           </div>
-          <span id="weekly-games-tz" class="text-[11px] text-slate-300 font-mono"></span>
+          <div class="flex items-center gap-3">
+            <!-- Link to 506 Sports' CBS/FOX regional coverage maps for the current week (href set in renderThisWeeksGames) -->
+            <a id="weekly-games-tvmaps" href="https://506sports.com/nfl.php" target="_blank" rel="noopener noreferrer" class="text-[11px] font-semibold text-sky-300 hover:text-sky-100 underline underline-offset-2">TV Coverage Maps ↗</a>
+            <span id="weekly-games-tz" class="text-[11px] text-slate-300 font-mono"></span>
+          </div>
         </div>
         <div id="weekly-games-grid" class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 bg-slate-50/50">
           <!-- Dynamically populated via renderThisWeeksGames() -->
@@ -966,6 +970,14 @@
       );
     }
 
+    // Host city name (without country) of an international game, e.g. "Munich"; null if not in INTERNATIONAL_MATCHUPS
+    function getInternationalCity(week, teamA, teamB) {
+      const m = INTERNATIONAL_MATCHUPS.find(m =>
+        m.week === week && m.teams.includes(teamA) && m.teams.includes(teamB)
+      );
+      return m ? m.city.split(",")[0] : null;
+    }
+
     function formatScheduleTileDate(isoOrDate, isUpcoming) {
       const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
       if (isNaN(d.getTime())) return "";
@@ -1157,7 +1169,8 @@
             period,
             clockStr: shortDetail,
             startISO: ev.date,
-            isIntl: intl
+            isIntl: intl,
+            venueCity: comp.venue?.address?.city || null  // fallback label for international games missing from INTERNATIONAL_MATCHUPS
           });
 
           competitors.forEach(myComp => {
@@ -1481,6 +1494,9 @@
       const grid = document.getElementById("weekly-games-grid");
 
       titleEl.textContent = `This Week's Games (Week ${currentWeekNumber})`;
+      // Point the TV maps link at 506 Sports' page for the week being shown
+      document.getElementById("weekly-games-tvmaps").href =
+        `https://506sports.com/nfl.php?yr=2026&wk=${currentWeekNumber}`;
       try {
         const tzAbbr = new Date().toLocaleTimeString([], { timeZoneName: "short" }).split(" ").pop();
         tzEl.textContent = `Local Time (${tzAbbr})`;
@@ -1503,6 +1519,10 @@
 
         const isIntl = g.isIntl || isInternationalGame(g.week, g.away, g.home);
         const atSymbol = isIntl ? "@*" : "@";
+        // International games show the host city in the tile header instead of a generic "INTL" tag
+        const intlLabel = isIntl
+          ? (getInternationalCity(g.week, g.away, g.home) || g.venueCity || "INTL")
+          : "";
 
         let headerRight = "";
         let cardBorder = "border-slate-200 bg-white";
@@ -1530,7 +1550,7 @@
 
         tile.innerHTML = `
           <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">WK ${g.week}${isIntl ? " • INTL*" : ""}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">WK ${g.week}${isIntl ? ` • ${intlLabel}*` : ""}</span>
             ${headerRight}
           </div>
           <div class="space-y-1.5 text-xs">
