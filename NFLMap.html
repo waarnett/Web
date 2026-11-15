@@ -91,7 +91,7 @@
       color: #ffffff;
     }
 
-    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 1010px wide (about the narrowest width where both cards fit without scrolling).
+    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 1020px wide (about the narrowest width where both cards fit without scrolling).
        minmax(0, 1fr) keeps columns equal width: a card's content can never widen its column. */
     .standings-two-col {
       display: grid;
@@ -99,7 +99,7 @@
       gap: 1.5rem;
       width: 100%;
     }
-    @media (min-width: 1010px) {
+    @media (min-width: 1020px) {
       .standings-two-col {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -2028,7 +2028,8 @@
      */
     function createStandingsCard(title, headerBgClass, teamsList, showRank = false) {
       const card = document.createElement("div");
-      card.className = "bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-md w-full max-w-2xl mx-auto flex flex-col";
+      // max-w-max: the card is never wider than its columns at full width (no empty space after team names)
+      card.className = "bg-white border border-slate-200 rounded-2xl overflow-x-auto shadow-md w-full max-w-max mx-auto flex flex-col";
 
       // Header and rows live in one wrapper so they always have the same width, even when the card scrolls
       const inner = document.createElement("div");
@@ -2038,14 +2039,15 @@
       // Each column is minmax(smallest, preferred): stat columns shrink toward their smallest width before
       // the card has to scroll. The team column's minimum (10.75rem, about 13 characters plus the logo; 12.25rem
       // with a rank number) holds its place; it only grows once the stat columns are at full width.
+      // Its full width (12rem / 13.5rem with rank) just fits the longest name, "Washington Commanders" (~150px), plus the logo.
       const colTemplate = [
-        showRank ? "minmax(12.25rem, 1fr)" : "minmax(10.75rem, 1fr)",  // team
+        showRank ? "minmax(12.25rem, 13.5rem)" : "minmax(10.75rem, 12rem)",  // team
         // Preferred widths include 0.25rem of spacing (values are right-aligned), so the space
         // between columns also shrinks away on narrow windows; the fixed gap is kept small
         "minmax(2.75rem, 3rem)",      // W-L-T (room for 6 characters, e.g. "10-6-1"; iPhone's font runs slightly wide)
         "minmax(1.875rem, 2.5rem)",   // PCT
         "minmax(1.375rem, 2rem)",     // GB
-        "minmax(2.75rem, 3rem)",      // DIV (6 characters, like W-L-T)
+        "minmax(3.125rem, 3.375rem)", // DIV (6 characters, like W-L-T, plus pl-1.5 to separate it from the right-aligned GB)
         "minmax(2.75rem, 3rem)",      // CONF (6 characters, like W-L-T)
         "minmax(1.375rem, 2rem)",     // PF
         "minmax(1.375rem, 2rem)"      // PA
@@ -2056,13 +2058,15 @@
       header.className = `${gridClass} px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider text-white ${headerBgClass}`;
       header.style.gridTemplateColumns = colTemplate;
       const headerStat = "text-right text-[11px] opacity-90 font-semibold font-mono";
+      // Record columns (W-L-T, DIV, CONF) are left-aligned, header and values, so a tie's extra "-T" sticks out to the right
+      const headerRecord = "text-left text-[11px] opacity-90 font-semibold font-mono";
       header.innerHTML = `
         <div class="min-w-0 pr-1"><span class="text-sm">${title}</span></div>
-        <span class="${headerStat}">W-L-T</span>
+        <span class="${headerRecord}">W-L-T</span>
         <span class="${headerStat}">PCT</span>
         <span class="${headerStat}">GB</span>
-        <span class="${headerStat}">DIV</span>
-        <span class="${headerStat}">CONF</span>
+        <span class="${headerRecord} pl-1.5">DIV</span>
+        <span class="${headerRecord}">CONF</span>
         <span class="${headerStat}">PF</span>
         <span class="${headerStat}">PA</span>
       `;
@@ -2100,11 +2104,11 @@
             <img src="${logoSrc}" alt="${team.name}" class="w-6 h-6 object-contain flex-shrink-0" />
             <span class="font-semibold text-slate-800 truncate min-w-0 block">${clincherPrefixHtml}${team.name}</span>
           </div>
-          <span class="text-right font-mono font-bold text-slate-900">${formatRecord(team)}</span>
+          <span class="text-left font-mono font-bold text-slate-900">${formatRecord(team)}</span>
           <span class="text-right font-mono text-slate-600">${pctStr}</span>
           <span class="text-right font-mono text-slate-600 font-semibold">${gbStr}</span>
-          <span class="text-right font-mono text-slate-600">${team.divRec || '-'}</span>
-          <span class="text-right font-mono text-slate-600">${team.confRec || '-'}</span>
+          <span class="text-left pl-1.5 font-mono text-slate-600">${team.divRec || '-'}</span>
+          <span class="text-left font-mono text-slate-600">${team.confRec || '-'}</span>
           <span class="text-right font-mono text-slate-500">${team.pf}</span>
           <span class="text-right font-mono text-slate-500">${team.pa}</span>
         `;
@@ -2120,7 +2124,7 @@
       const container = document.getElementById("standings-container");
       container.innerHTML = "";
 
-      // NFC first (left column at >=1010px), AFC second (right column at >=1010px); divisions: West, North, South, East
+      // NFC first (left column at >=1020px), AFC second (right column at >=1020px); divisions: West, North, South, East
       const divisionOrder = ["West", "North", "South", "East"];
 
       // Specific division selected -> omit ranking numbers (showRank = false)
