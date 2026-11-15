@@ -34,7 +34,7 @@
     }
     .nation-border {
       fill: none;
-      stroke: #1e293b;
+      stroke: #64748b;  /* coastline / national outline: same gray as state lines, kept slightly thicker */
       stroke-width: 1.35;
       stroke-linejoin: round;
       stroke-linecap: round;
@@ -55,6 +55,12 @@
     }
     .team-marker.selected image {
       filter: drop-shadow(0px 0px 8px #d97706) drop-shadow(0px 3px 6px rgba(0,0,0,0.5));
+    }
+    .team-ring {
+      fill: #ffffff;
+      stroke: #94a3b8;
+      stroke-width: 1;
+      pointer-events: none;
     }
     .team-marker.dimmed {
       opacity: 0.08;
@@ -1790,6 +1796,11 @@
           .attr("r", hitRadius)
           .attr("fill", "transparent")
           .attr("stroke", "none");
+
+        // Visible ring behind the logo (white fill hides map lines under it); styled by .team-ring
+        node.append("circle")
+          .attr("class", "team-ring")
+          .attr("r", halfSize + 2);
 
         const dataSrc = logoBase64Cache[team.id] || team.logo;
 
