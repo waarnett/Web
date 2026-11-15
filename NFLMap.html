@@ -91,7 +91,7 @@
       color: #ffffff;
     }
 
-    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 970px wide (narrowest width where both cards fit without scrolling).
+    /* Two-column NFC (left) / AFC (right) layout when viewport is at least 1010px wide (about the narrowest width where both cards fit without scrolling).
        minmax(0, 1fr) keeps columns equal width: a card's content can never widen its column. */
     .standings-two-col {
       display: grid;
@@ -99,7 +99,7 @@
       gap: 1.5rem;
       width: 100%;
     }
-    @media (min-width: 970px) {
+    @media (min-width: 1010px) {
       .standings-two-col {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -2045,8 +2045,8 @@
         "minmax(2.75rem, 3rem)",      // W-L-T (room for 6 characters, e.g. "10-6-1"; iPhone's font runs slightly wide)
         "minmax(1.875rem, 2.5rem)",   // PCT
         "minmax(1.375rem, 2rem)",     // GB
-        "minmax(2.25rem, 3rem)",      // DIV
-        "minmax(2.25rem, 3rem)",      // CONF
+        "minmax(2.75rem, 3rem)",      // DIV (6 characters, like W-L-T)
+        "minmax(2.75rem, 3rem)",      // CONF (6 characters, like W-L-T)
         "minmax(1.375rem, 2rem)",     // PF
         "minmax(1.375rem, 2rem)"      // PA
       ].join(" ");
@@ -2120,7 +2120,7 @@
       const container = document.getElementById("standings-container");
       container.innerHTML = "";
 
-      // NFC first (left column at >=970px), AFC second (right column at >=970px); divisions: West, North, South, East
+      // NFC first (left column at >=1010px), AFC second (right column at >=1010px); divisions: West, North, South, East
       const divisionOrder = ["West", "North", "South", "East"];
 
       // Specific division selected -> omit ranking numbers (showRank = false)
