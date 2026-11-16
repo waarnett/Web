@@ -54,19 +54,28 @@ a.jump:hover{text-decoration:underline}
 .rosters-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px}
 .sortbtn{font:inherit;font-size:13px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
 .sortbtn:hover{border-color:var(--muted)}
+/* data buttons under the intro: the one showing is filled in */
+.metric{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.sortbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.sortbtn:disabled{opacity:.5;cursor:default}
 </style>
 
 <div class="wrap">
   <header>
-    <h1>World population in ten blocs</h1>
+    <h1 id="title">World population in ten blocs</h1>
     <p class="lede">All 193 UN member states plus Taiwan, assigned to ten groups. Dependent territories are counted inside the country that governs them. Figures are <span id="year">…</span> estimates.</p>
+    <div class="metric" role="group" aria-label="Data shown">
+      <button type="button" class="sortbtn" data-m="pop" aria-pressed="true">Population</button>
+      <button type="button" class="sortbtn" data-m="gdp" aria-pressed="false" disabled title="Loading GDP data…">GDP (nominal)</button>
+      <button type="button" class="sortbtn" data-m="ppp" aria-pressed="false" disabled title="Loading GDP data…">GDP (PPP)</button>
+    </div>
   </header>
 
   <section class="top">
     <div class="chartbox"><canvas id="pie" aria-label="Pie chart of world population by bloc"></canvas></div>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Bloc</th><th class="r">States</th><th class="r">Population</th><th class="r">Share</th></tr></thead>
+        <thead><tr><th>Bloc</th><th class="r">States</th><th class="r" id="valCol">Population</th><th class="r">Share</th></tr></thead>
         <tbody id="sumBody"></tbody>
         <tfoot><tr><td>Total</td><td class="r num" id="totN"></td><td class="r num" id="totP"></td><td class="r num">100%</td></tr></tfoot>
       </table>
@@ -82,10 +91,11 @@ a.jump:hover{text-decoration:underline}
   <section class="notes">
     <h2 style="color:var(--fg)">Judgment calls</h2>
     <p><b>Left out:</b> the State of Palestine and the Holy See (UN observer states, not members), together about <span id="leftOut">…</span> million people. Kosovo is not listed separately; it is counted inside Serbia.</p>
-    <p><b>Taiwan:</b> the World Bank includes Taiwan in its world total but does not list it, so its figure here is the world total minus every economy the World Bank does list.</p>
+    <p><b>Taiwan:</b> the World Bank includes Taiwan in its world population total but does not list it, so its population here is the world total minus every economy the World Bank does list. The IMF lists Taiwan’s GDP directly.</p>
+    <p id="gdpGaps"></p>
   </section>
 
-  <footer>Source: World Bank, World Development Indicators, “Population, total” (SP.POP.TOTL), loaded live each time the page opens. <a href="https://data.worldbank.org/indicator/SP.POP.TOTL">data.worldbank.org</a></footer>
+  <footer>Sources, loaded live each time the page opens: population from the World Bank, World Development Indicators, “Population, total” (SP.POP.TOTL), <a href="https://data.worldbank.org/indicator/SP.POP.TOTL">data.worldbank.org</a>; GDP from the IMF, World Economic Outlook, GDP at current prices in U.S. dollars (NGDPD) and in PPP international dollars (PPPGDP), <a href="https://www.imf.org/en/Publications/WEO">imf.org</a>.</footer>
 </div>
 
 <script>
@@ -122,95 +132,160 @@ const NOTE = {TWN:"not a UN member; included because you named it"};
 const COLORS = {"The West":"#8fb8de","Rus":"#c9a7de","Islam":"#7fc8a9","SubSahara":"#e8b86a","Latin America & Caribbean":"#f2a6a0",
   "China":"#e7d36f","SouthAsia":"#f0a35e","Western Pacific":"#9fd3dc","SEAsia":"#b9cf7f","ROW":"#c4c9cf"};
 const fmt = n => n.toLocaleString("en-US");
+// GDP in billions of dollars, one decimal
+const fmtBn = n => "$" + (n/1e9).toLocaleString("en-US", {minimumFractionDigits:1, maximumFractionDigits:1});
 
-// Most recent population for every World Bank country and aggregate (World = "WLD")
+// The three data sets the buttons switch between
+const METRICS = {
+  pop:{title:"World population in ten blocs", col:"Population", sortBy:"population", fmt, stat:t=>fmt(t)+" people"},
+  gdp:{title:"World GDP in ten blocs", col:"GDP<br>($ billions)", sortBy:"GDP", fmt:fmtBn, stat:t=>fmtBn(t)+" billion GDP"},
+  ppp:{title:"World GDP (PPP) in ten blocs", col:"GDP PPP<br>($ billions)", sortBy:"GDP", fmt:fmtBn, stat:t=>fmtBn(t)+" billion GDP (PPP)"}
+};
+
+// IMF World Economic Outlook series for every economy, as {code: {year: dollars}}
+const IMF_CODE = {KOS:"XKX", WBG:"PSE"};  // IMF codes that differ from the World Bank's
+const imf = ind => fetch(`https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.RES/WEO/+/*.${ind}.A`)
+  .then(r => r.json())
+  .then(j => {
+    const dims = j.data.structures[0].dimensions, out = {};
+    const country = dims.series.find(d => d.id === "COUNTRY"), ci = dims.series.indexOf(country);
+    const years = dims.observation.find(d => d.id === "TIME_PERIOD").values.map(v => v.value || v.id);
+    for (const [key, s] of Object.entries(j.data.dataSets[0].series)) {
+      const c = country.values[+key.split(":")[ci]].id, o = out[IMF_CODE[c] || c] = {};
+      for (const [t, v] of Object.entries(s.observations)) if (v[0] > 0) o[years[+t]] = +v[0];
+    }
+    return out;
+  });
+
+// Population from the World Bank (most recent year; World = "WLD"), GDP from the IMF. The page draws as soon as
+// population arrives; each GDP button turns on when its IMF data arrives (the IMF can take several seconds).
+const gdpData = imf("NGDPD").catch(() => null), pppData = imf("PPPGDP").catch(() => null);
 fetch("https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=1000&mrnev=1")
   .then(r => r.json())
-  .then(([, rows]) => render(rows))
+  .then(([, rows]) => {
+    const addGDP = render(rows);
+    gdpData.then(d => addGDP("gdp", d));
+    pppData.then(d => addGDP("ppp", d));
+  })
   .catch(() => {
     document.getElementById("year").textContent = "(unavailable)";
     document.getElementById("sumBody").innerHTML = `<tr><td colspan="4">Couldn’t load population data from the World Bank. Try reloading the page.</td></tr>`;
   });
 
+// draws the population view and returns a function that adds a GDP data set ("gdp" or "ppp") once it has loaded
 function render(rows) {
   const pop = {}, name = {};
   rows.forEach(r => { pop[r.countryiso3code] = r.value; name[r.countryiso3code] = r.country.value; });
+  const year = rows.find(r => r.countryiso3code === "WLD").date;  // GDP is shown for the same year as population
   const codes = s => s.split(" ");
-  const withParts = c => pop[c] + (PARTS[c] ? codes(PARTS[c][0]).reduce((s,p)=>s+pop[p],0) : 0);
+  // a country's value plus its territories' (territories without data add nothing); undefined if the country has no data
+  const withParts = (val, c) => val(c) === undefined ? undefined
+    : val(c) + (PARTS[c] ? codes(PARTS[c][0]).reduce((s,p)=>s+(val(p)||0),0) : 0);
 
   // Taiwan = World Bank world total minus every economy it lists
   const listed = BLOCS.flatMap(b => codes(b[2])).filter(c => c !== "TWN");
-  pop.TWN = pop.WLD - listed.reduce((s,c)=>s+withParts(c),0) - LEFT_OUT.reduce((s,c)=>s+pop[c],0);
+  pop.TWN = pop.WLD - listed.reduce((s,c)=>s+withParts(c=>pop[c],c),0) - LEFT_OUT.reduce((s,c)=>s+pop[c],0);
 
-  const groups = BLOCS.map(([gName, def, list]) => {
-    const countries = codes(list).map(c => [NAME[c] || name[c], withParts(c), NOTE[c] || (PARTS[c] ? PARTS[c][1] : "")])
-      .sort((a,b) => a[0].localeCompare(b[0]));
-    return {name:gName, def, countries, total:countries.reduce((s,c)=>s+c[1],0)};
-  });
-  const world = groups.reduce((s,g)=>s+g.total,0);
-  groups.forEach(g => g.pct = g.total/world*100);
+  // blocs and their countries for one data set; countries without data count as zero in the totals
+  const build = val => {
+    const groups = BLOCS.map(([gName, def, list]) => {
+      const countries = codes(list).map(c => [NAME[c] || name[c], withParts(val, c), NOTE[c] || (PARTS[c] ? PARTS[c][1] : "")])
+        .sort((a,b) => a[0].localeCompare(b[0]));
+      return {name:gName, def, countries, total:countries.reduce((s,c)=>s+(c[1]||0),0)};
+    });
+    const world = groups.reduce((s,g)=>s+g.total,0);
+    groups.forEach(g => g.pct = g.total/world*100);
+    return {groups, world};
+  };
+  const DATA = {pop: build(c => pop[c])};
 
-  document.getElementById("year").textContent = rows.find(r => r.countryiso3code === "WLD").date;
+  document.getElementById("year").textContent = year;
   document.getElementById("leftOut").textContent = (LEFT_OUT.reduce((s,c)=>s+pop[c],0)/1e6).toFixed(1);
 
   // each bloc's section gets an id so the key and the pie can jump to it
   const blocId = n => "bloc-" + n.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const css = getComputedStyle(document.documentElement);
+  const sortBtn = document.getElementById("sortBtn");
+  const metricBtns = [...document.querySelectorAll(".metric button")];
+  // pie: small slices placed between large ones so their outside labels don't collide in any of the three data sets
+  const order = ["Rus","China","SouthAsia","Islam","SEAsia","Western Pacific","SubSahara","Latin America & Caribbean","ROW","The West"];
+  let cur = "pop", byVal = false, bySize, pieData, chart;
 
-  // summary table (the key), largest first; each name links to its bloc below
-  const bySize = [...groups].sort((a,b)=>b.total-a.total);
-  document.getElementById("sumBody").innerHTML = bySize.map(g =>
-    `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span><a class="jump" href="#${blocId(g.name)}">${g.name}</a></td>
-     <td class="r num">${g.countries.length}</td><td class="r num">${fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
-  document.getElementById("totN").textContent = groups.reduce((s,g)=>s+g.countries.length,0);
-  document.getElementById("totP").textContent = fmt(world);
-
-  // rosters, largest bloc first (same order as the summary table); one-line description where there is one;
-  // countries alphabetical or largest first, switched by the sort button
-  let byPop = false;
-  const renderRosters = () => document.getElementById("rosters").innerHTML = bySize.map(g => `
+  // countries in each bloc, alphabetical or largest first (switched by the sort button)
+  const renderRosters = () => {
+    const M = METRICS[cur];
+    document.getElementById("rosters").innerHTML = bySize.map(g => `
     <article class="bloc" id="${blocId(g.name)}" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
       <div class="bloc-head"><h3>${g.name}</h3>
-        <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${fmt(g.total)} people · ${g.pct.toFixed(1)}%</span></div>
+        <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${M.stat(g.total)} · ${g.pct.toFixed(1)}%</span></div>
       ${g.def?`<p class="def">${g.def}</p>`:""}
-      <ul class="roster">${(byPop ? [...g.countries].sort((a,b)=>b[1]-a[1]) : g.countries).map(([c,p,n]) =>
-        `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${fmt(p)}</span></li>`).join("")}</ul>
+      <ul class="roster">${(byVal ? [...g.countries].sort((a,b)=>(b[1]??-1)-(a[1]??-1)) : g.countries).map(([c,p,n]) =>
+        `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${p===undefined?"no data":M.fmt(p)}</span></li>`).join("")}</ul>
     </article>`).join("");
-  renderRosters();
-  const sortBtn = document.getElementById("sortBtn");
-  sortBtn.onclick = () => {
-    byPop = !byPop;
-    sortBtn.textContent = byPop ? "Sort A–Z" : "Sort by population";
-    renderRosters();
   };
 
-  // pie: small slices placed between large ones so their outside labels don't collide
-  const order = ["SouthAsia","Rus","China","SEAsia","Islam","ROW","SubSahara","Western Pacific","The West","Latin America & Caribbean"];
-  const pieData = order.map(n => groups.find(g=>g.name===n));
-  const css = getComputedStyle(document.documentElement);
-  Chart.register(ChartDataLabels);
-  new Chart(document.getElementById("pie"), {
-    type:"pie",
-    data:{labels:pieData.map(g=>g.name),
-      datasets:[{data:pieData.map(g=>g.total),backgroundColor:pieData.map(g=>COLORS[g.name]),
-        borderColor:css.getPropertyValue("--bg").trim(),borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,rotation:-90,
-      layout:{padding:56},
-      animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
-      // clicking a slice scrolls to that bloc's country list; pointer cursor over slices
-      onClick:(e,els)=>{ if (els.length) document.getElementById(blocId(pieData[els[0].index].name)).scrollIntoView(); },
-      onHover:(e,els)=>{ e.native.target.style.cursor = els.length ? "pointer" : "default"; },
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${fmt(g.total)} (${g.pct.toFixed(1)}%)`;}}},
-        datalabels:{
-          font:{family:"Public Sans, system-ui, sans-serif",weight:"600",size:12},
-          textAlign:"center",
-          color:c=> pieData[c.dataIndex].pct>=5 ? "#111" : css.getPropertyValue("--fg").trim(),
-          anchor:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
-          align:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
-          offset:4,
-          formatter:(v,c)=>{const g=pieData[c.dataIndex];return g.name+"\n"+g.pct.toFixed(1)+"%";}
-        }}}
-  });
+  // draw the page for the data set chosen with the buttons
+  const draw = () => {
+    const M = METRICS[cur], {groups, world} = DATA[cur];
+    document.getElementById("title").textContent = M.title;
+    document.getElementById("valCol").innerHTML = M.col;
+    metricBtns.forEach(b => b.setAttribute("aria-pressed", b.dataset.m === cur));
+    sortBtn.textContent = byVal ? "Sort A–Z" : "Sort by " + M.sortBy;
+
+    // summary table (the key), largest first; each name links to its bloc below
+    bySize = [...groups].sort((a,b)=>b.total-a.total);
+    document.getElementById("sumBody").innerHTML = bySize.map(g =>
+      `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span><a class="jump" href="#${blocId(g.name)}">${g.name}</a></td>
+       <td class="r num">${g.countries.length}</td><td class="r num">${M.fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
+    document.getElementById("totN").textContent = groups.reduce((s,g)=>s+g.countries.length,0);
+    document.getElementById("totP").textContent = M.fmt(world);
+
+    // rosters, largest bloc first (same order as the summary table); one-line description where there is one
+    renderRosters();
+
+    pieData = order.map(n => groups.find(g=>g.name===n));
+    if (chart) { chart.data.datasets[0].data = pieData.map(g=>g.total); chart.update(); return; }
+    Chart.register(ChartDataLabels);
+    chart = new Chart(document.getElementById("pie"), {
+      type:"pie",
+      data:{labels:pieData.map(g=>g.name),
+        datasets:[{data:pieData.map(g=>g.total),backgroundColor:pieData.map(g=>COLORS[g.name]),
+          borderColor:css.getPropertyValue("--bg").trim(),borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,rotation:-90,
+        layout:{padding:56},
+        animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
+        // clicking a slice scrolls to that bloc's country list; pointer cursor over slices
+        onClick:(e,els)=>{ if (els.length) document.getElementById(blocId(pieData[els[0].index].name)).scrollIntoView(); },
+        onHover:(e,els)=>{ e.native.target.style.cursor = els.length ? "pointer" : "default"; },
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${METRICS[cur].stat(g.total)} (${g.pct.toFixed(1)}%)`;}}},
+          datalabels:{
+            font:{family:"Public Sans, system-ui, sans-serif",weight:"600",size:12},
+            textAlign:"center",
+            // labels: mid-slice for big slices, inside near the rim for thin ones (more room there), outside for tiny ones
+            color:c=> pieData[c.dataIndex].pct>=5 ? "#111" : css.getPropertyValue("--fg").trim(),
+            anchor:c=> pieData[c.dataIndex].pct>=12 ? "center" : "end",
+            align:c=> pieData[c.dataIndex].pct>=12 ? "center" : pieData[c.dataIndex].pct>=5 ? "start" : "end",
+            offset:4,
+            formatter:(v,c)=>{const g=pieData[c.dataIndex];return g.name+"\n"+g.pct.toFixed(1)+"%";}
+          }}}
+    });
+  };
+
+  sortBtn.onclick = () => { byVal = !byVal; sortBtn.textContent = byVal ? "Sort A–Z" : "Sort by " + METRICS[cur].sortBy; renderRosters(); };
+  metricBtns.forEach(b => b.onclick = () => { cur = b.dataset.m; draw(); });
+  draw();
+
+  return (m, src) => {
+    const btn = metricBtns.find(b => b.dataset.m === m);
+    if (!src) { btn.title = "Couldn’t load GDP data from the IMF"; return; }
+    DATA[m] = build(c => src[c]?.[year]);
+    btn.disabled = false; btn.title = "";
+    // states the IMF has no GDP figure for in that year
+    const gaps = [...new Set(["gdp","ppp"].filter(k => DATA[k]).flatMap(k => DATA[k].groups.flatMap(g => g.countries.filter(c => c[1] === undefined).map(c => c[0]))))].sort();
+    if (gaps.length) document.getElementById("gdpGaps").innerHTML =
+      `<b>GDP:</b> the IMF has no ${year} figures for ${gaps.join(", ")}; they show “no data” and count as zero. Territories the IMF doesn’t cover are left out of their country’s GDP.`;
+  };
 }
 </script>
 
