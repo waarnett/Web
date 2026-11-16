@@ -165,6 +165,36 @@
       border-top: 1px solid var(--border);
     }
 
+    /* ---------- address (reverse geocoding) card under latitude/longitude ---------- */
+
+    .place {
+      margin-top: 12px;
+      padding: 14px 16px 12px;
+    }
+
+    .place-lines {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .place-lines.empty {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: .9rem;
+    }
+
+    .place-credit {
+      margin-top: 8px;
+      font-size: .7rem;
+      color: var(--muted);
+    }
+
+    .place-credit a {
+      color: var(--label);
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -510,6 +540,17 @@
           <button class="value small" id="lonAng" data-group="coord" title="Click to change format"></button>
           <button class="value small" id="lonErr" data-group="unit" title="Click to change units"></button>
         </div>
+      </div>
+    </section>
+
+    <!-- address for the current position, looked up from OpenStreetMap data -->
+    <section class="card place" aria-live="polite">
+      <div class="label">Address</div>
+      <div class="place-lines empty" id="place">—</div>
+      <div class="sub" id="placeSub">Waiting for a position</div>
+      <div class="place-credit">
+        Address data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap
+          contributors</a>, via <a href="https://nominatim.org/" target="_blank" rel="noopener">Nominatim</a>
       </div>
     </section>
 
@@ -978,6 +1019,7 @@
         showMessage('');
         render();
         flash();
+        updatePlace();   // look up the address for the new position (throttled)
       }
 
       function onFix(pos) {
@@ -1004,6 +1046,96 @@
           setStatus('error', 'No position');
         }
         showMessage(text);
+      }
+
+      // ---------- address (reverse geocoding) ----------
+      // The address comes from Nominatim, the OpenStreetMap search service, which allows browser
+      // requests from any site without a key. Its usage policy asks for at most one request per
+      // second, no repeated lookups of the same spot, and credit to OpenStreetMap (shown on the page).
+      // While tracking, positions arrive about once a second, so lookups here are limited to one
+      // every PLACE_MIN_SECS, and only after moving PLACE_MIN_MOVE meters from the last address found
+      // or once the reading is much more precise than the one that address came from (the first
+      // readings after opening the page are often rough and settle a house or two away).
+      var PLACE_URL = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18';
+      var PLACE_MIN_SECS = 10;
+      var PLACE_MIN_MOVE = 10;     // meters, under the width of a typical house lot
+      var placeAt = null;          // position (and its ± accuracy) of the address on show
+      var placeLast = 0;           // when the last lookup was sent
+      var placeBusy = false;
+      var placeTimer = null;       // a lookup waiting for the throttle interval to pass
+
+      // distance between two nearby positions, in meters (flat-Earth approximation, fine over a few km)
+      function distanceMeters(a, b) {
+        var dy = (a.latitude - b.latitude) * metersPerDegree(a.latitude, true);
+        var dx = (a.longitude - b.longitude) * metersPerDegree(a.latitude, false);
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function setPlace(lines, sub) {
+        var el = $('place');
+        el.textContent = '';
+        lines.forEach(function (line, i) {
+          if (i) el.appendChild(document.createElement('br'));
+          el.appendChild(document.createTextNode(line));
+        });
+        el.classList.toggle('empty', lines.length === 0);
+        if (!lines.length) el.textContent = '—';
+        $('placeSub').textContent = sub || '';
+      }
+
+      // Address lines from a Nominatim answer: place name, street, town and region (no neighborhood or country).
+      function placeLines(r) {
+        var a = r.address || {};
+        var street = [a.house_number, a.road || a.pedestrian || a.footway || a.path].filter(Boolean).join(' ');
+        var town = a.city || a.town || a.village || a.hamlet || a.municipality || a.county || '';
+        var region = [a.state, a.postcode].filter(Boolean).join(' ');
+        var lines = [];
+        [r.name, street, [town, region].filter(Boolean).join(', ')].forEach(function (line) {
+          if (line && lines.indexOf(line) < 0) lines.push(line);
+        });
+        if (!lines.length && r.display_name) lines.push(r.display_name);
+        return lines;
+      }
+
+      function updatePlace() {
+        if (!fix || placeBusy || placeTimer) return;   // a lookup is running or already scheduled
+        // a reading at least twice as precise as the one behind the address on show earns a new lookup
+        var sharper = placeAt && isFinite(fix.accuracy) && isFinite(placeAt.accuracy) && fix.accuracy * 2 <= placeAt.accuracy;
+        if (placeAt && distanceMeters(placeAt, fix) < PLACE_MIN_MOVE && !sharper) return;   // still at the same address
+        var wait = placeLast + PLACE_MIN_SECS * 1000 - Date.now();
+        if (wait > 0) {
+          placeTimer = setTimeout(function () { placeTimer = null; updatePlace(); }, wait);
+          return;
+        }
+        lookupPlace({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy });
+      }
+
+      function lookupPlace(at) {
+        placeBusy = true;
+        placeLast = Date.now();
+        if (!placeAt) setPlace([], 'Looking up the address…');
+        else $('placeSub').textContent = 'Updating…';
+        // the browser's own language setting picks the language of the answer
+        fetch(PLACE_URL + '&lat=' + at.latitude.toFixed(6) + '&lon=' + at.longitude.toFixed(6),
+          { signal: AbortSignal.timeout(15000) })
+          .then(function (resp) {
+            if (!resp.ok) throw new Error('The address service answered ' + resp.status + '.');
+            return resp.json();
+          })
+          .then(function (r) {
+            placeBusy = false;
+            placeAt = at;
+            var lines = r.error ? [] : placeLines(r);   // e.g. open sea: { error: "Unable to geocode" }
+            setPlace(lines, lines.length ? '' : 'No address known for this spot.');
+            updatePlace();   // the position may have moved on while this lookup ran
+          })
+          .catch(function (e) {
+            placeBusy = false;
+            placeAt = null;   // the next position reading tries again (still at most one lookup per PLACE_MIN_SECS)
+            var why = e && e.name === 'TimeoutError' ? 'The address service did not answer.'
+              : e && /^The address/.test(e.message) ? e.message : 'Could not reach the address service.';
+            setPlace([], why + ' Trying again with the next position.');
+          });
       }
 
       // ---------- auto refresh ----------
