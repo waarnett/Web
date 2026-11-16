@@ -46,6 +46,14 @@ ul.roster li small{display:block;color:var(--muted);font-size:12px;line-height:1
 ul.roster li .p{white-space:nowrap;color:var(--muted)}
 footer{font-size:13px;color:var(--muted)}
 a{color:var(--accent)}
+/* key names in the summary table jump to their bloc; blocs leave a little room above when scrolled to */
+a.jump{color:inherit;text-decoration:none}
+a.jump:hover{text-decoration:underline}
+.bloc{scroll-margin-top:16px}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+.rosters-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px}
+.sortbtn{font:inherit;font-size:13px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+.sortbtn:hover{border-color:var(--muted)}
 </style>
 
 <div class="wrap">
@@ -66,7 +74,8 @@ a{color:var(--accent)}
   </section>
 
   <section style="display:grid;gap:28px">
-    <h2>Countries in each bloc</h2>
+    <div class="rosters-head"><h2>Countries in each bloc</h2>
+      <button type="button" class="sortbtn" id="sortBtn">Sort by population</button></div>
     <div id="rosters" style="display:grid;gap:28px"></div>
   </section>
 
@@ -90,7 +99,7 @@ const BLOCS = [
   ["China","","CHN"],
   ["SouthAsia","","BTN IND NPL LKA"],
   ["Western Pacific","","JPN PHL KOR TWN"],
-  ["SEAsia","","KHM LAO MYS MMR SGP THA VNM"],
+  ["SEAsia","Indonesia is in the Islam group.","KHM LAO MYS MMR SGP THA VNM"],
   ["ROW","All other UN member states","AND ARM BIH FJI GEO KIR MHL FSM MDA MNG NRU PRK PLW PNG WSM SMR SRB SLB TLS TON TUV UKR VUT"]
 ];
 // Territories the World Bank lists separately, folded into the country that governs them: [codes, roster note]
@@ -144,23 +153,35 @@ function render(rows) {
   document.getElementById("year").textContent = rows.find(r => r.countryiso3code === "WLD").date;
   document.getElementById("leftOut").textContent = (LEFT_OUT.reduce((s,c)=>s+pop[c],0)/1e6).toFixed(1);
 
-  // summary table, largest first
+  // each bloc's section gets an id so the key and the pie can jump to it
+  const blocId = n => "bloc-" + n.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+  // summary table (the key), largest first; each name links to its bloc below
   const bySize = [...groups].sort((a,b)=>b.total-a.total);
   document.getElementById("sumBody").innerHTML = bySize.map(g =>
-    `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span>${g.name}</td>
+    `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span><a class="jump" href="#${blocId(g.name)}">${g.name}</a></td>
      <td class="r num">${g.countries.length}</td><td class="r num">${fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
   document.getElementById("totN").textContent = groups.reduce((s,g)=>s+g.countries.length,0);
   document.getElementById("totP").textContent = fmt(world);
 
-  // rosters, largest bloc first (same order as the summary table); countries alphabetical; one-line description where there is one
-  document.getElementById("rosters").innerHTML = bySize.map(g => `
-    <article class="bloc" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
+  // rosters, largest bloc first (same order as the summary table); one-line description where there is one;
+  // countries alphabetical or largest first, switched by the sort button
+  let byPop = false;
+  const renderRosters = () => document.getElementById("rosters").innerHTML = bySize.map(g => `
+    <article class="bloc" id="${blocId(g.name)}" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
       <div class="bloc-head"><h3>${g.name}</h3>
         <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${fmt(g.total)} people · ${g.pct.toFixed(1)}%</span></div>
       ${g.def?`<p class="def">${g.def}</p>`:""}
-      <ul class="roster">${g.countries.map(([c,p,n]) =>
+      <ul class="roster">${(byPop ? [...g.countries].sort((a,b)=>b[1]-a[1]) : g.countries).map(([c,p,n]) =>
         `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${fmt(p)}</span></li>`).join("")}</ul>
     </article>`).join("");
+  renderRosters();
+  const sortBtn = document.getElementById("sortBtn");
+  sortBtn.onclick = () => {
+    byPop = !byPop;
+    sortBtn.textContent = byPop ? "Sort A–Z" : "Sort by population";
+    renderRosters();
+  };
 
   // pie: small slices placed between large ones so their outside labels don't collide
   const order = ["SouthAsia","Rus","China","SEAsia","Islam","ROW","SubSahara","Western Pacific","The West","Latin America & Caribbean"];
@@ -175,6 +196,9 @@ function render(rows) {
     options:{responsive:true,maintainAspectRatio:false,rotation:-90,
       layout:{padding:56},
       animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
+      // clicking a slice scrolls to that bloc's country list; pointer cursor over slices
+      onClick:(e,els)=>{ if (els.length) document.getElementById(blocId(pieData[els[0].index].name)).scrollIntoView(); },
+      onHover:(e,els)=>{ e.native.target.style.cursor = els.length ? "pointer" : "default"; },
       plugins:{legend:{display:false},
         tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${fmt(g.total)} (${g.pct.toFixed(1)}%)`;}}},
         datalabels:{
