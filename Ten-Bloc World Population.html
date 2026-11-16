@@ -51,7 +51,7 @@ a{color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>World population in ten blocs</h1>
-    <p class="lede">All 193 UN member states plus Taiwan, assigned to ten groups. Dependent territories are counted inside the country that governs them. Figures are 2026 estimates.</p>
+    <p class="lede">All 193 UN member states plus Taiwan, assigned to ten groups. Dependent territories are counted inside the country that governs them. Figures are <span id="year">…</span> estimates.</p>
   </header>
 
   <section class="top">
@@ -72,62 +72,122 @@ a{color:var(--accent)}
 
   <section class="notes">
     <h2 style="color:var(--fg)">Judgment calls</h2>
-    <p><b>Left out:</b> the State of Palestine and the Holy See (UN observer states, not members), together about 5.7 million people. Kosovo is not listed separately; the UN figures count it inside Serbia.</p>
+    <p><b>Left out:</b> the State of Palestine and the Holy See (UN observer states, not members), together about <span id="leftOut">…</span> million people. Kosovo is not listed separately; it is counted inside Serbia.</p>
+    <p><b>Taiwan:</b> the World Bank includes Taiwan in its world total but does not list it, so its figure here is the world total minus every economy the World Bank does list.</p>
   </section>
 
-  <footer>Source: Worldometer, “Countries in the world by population (2026)”, built on UN World Population Prospects 2024 (medium variant). <a href="https://www.worldometers.info/world-population/population-by-country/">worldometers.info</a></footer>
+  <footer>Source: World Bank, World Development Indicators, “Population, total” (SP.POP.TOTL), loaded live each time the page opens. <a href="https://data.worldbank.org/indicator/SP.POP.TOTL">data.worldbank.org</a></footer>
 </div>
 
 <script>
-const D = {"groups": [{"name": "The West", "total": 977151673, "pct": 11.78, "countries": [["Albania", 2751025, ""], ["Australia", 27227096, ""], ["Austria", 9107266, ""], ["Belgium", 11774642, ""], ["Bulgaria", 6667659, ""], ["Canada", 40467728, ""], ["Croatia", 3822345, ""], ["Cyprus", 1382334, ""], ["Czechia", 10527781, ""], ["Denmark", 6135675, "incl. Greenland, Faroe Islands"], ["Estonia", 1331062, ""], ["Finland", 5621739, ""], ["France", 69642313, "incl. Réunion, Guadeloupe, Martinique, French Guiana, Mayotte, New Caledonia, French Polynesia, Saint Martin, Saint Barthélemy, Wallis & Futuna, Saint Pierre & Miquelon"], ["Germany", 83644258, ""], ["Greece", 9897115, ""], ["Hungary", 9585818, ""], ["Iceland", 402329, ""], ["Ireland", 5356950, ""], ["Israel", 9647689, ""], ["Italy", 58926166, ""], ["Latvia", 1835935, ""], ["Liechtenstein", 40368, ""], ["Lithuania", 2797338, ""], ["Luxembourg", 687448, ""], ["Malta", 549011, ""], ["Monaco", 38087, ""], ["Montenegro", 626233, ""], ["Netherlands", 18818739, "incl. Curaçao, Aruba, Sint Maarten, Caribbean Netherlands"], ["New Zealand", 5304818, "incl. Cook Islands, Niue, Tokelau"], ["North Macedonia", 1804063, ""], ["Norway", 5652989, ""], ["Poland", 37843188, ""], ["Portugal", 10395362, ""], ["Romania", 18800605, ""], ["Slovakia", 5451342, ""], ["Slovenia", 2114573, ""], ["Spain", 47850793, ""], ["Sweden", 10701047, ""], ["Switzerland", 9007798, ""], ["United Kingdom", 70312946, "incl. Isle of Man, Cayman Islands, Bermuda, Turks & Caicos, Gibraltar, British Virgin Islands, Anguilla, Saint Helena, Montserrat, Falkland Islands"], ["United States", 352600000, "incl. Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern Mariana Islands"]], "def": "USA, EU (27), UK, Switzerland, Norway, Iceland, Canada, Australia, New Zealand, Israel, Liechtenstein, Monaco, Montenegro, Albania, North Macedonia", "note": ""}, {"name": "Rus", "total": 152331476, "pct": 1.84, "countries": [["Belarus", 8937018, ""], ["Russia", 143394458, ""]], "def": "Russia, Belarus", "note": "Ukraine is not in Rus; it is in ROW."}, {"name": "Islam", "total": 1600917195, "pct": 19.3, "countries": [["Afghanistan", 45047069, ""], ["Algeria", 48028334, ""], ["Azerbaijan", 10454855, ""], ["Bahrain", 1675572, ""], ["Bangladesh", 177818044, ""], ["Brunei", 469775, ""], ["Chad", 21560380, ""], ["Comoros", 899010, ""], ["Djibouti", 1199459, ""], ["Egypt", 120101175, ""], ["Indonesia", 287886782, ""], ["Iran", 93168497, ""], ["Iraq", 48007437, ""], ["Jordan", 11589532, ""], ["Kazakhstan", 21083626, ""], ["Kuwait", 5102773, ""], ["Kyrgyzstan", 7400465, ""], ["Lebanon", 5897467, ""], ["Libya", 7539851, ""], ["Maldives", 531517, ""], ["Mali", 25932275, ""], ["Mauritania", 5461319, ""], ["Morocco", 39373254, "incl. Western Sahara"], ["Oman", 5671458, ""], ["Pakistan", 259299791, ""], ["Qatar", 3173559, ""], ["Saudi Arabia", 35165787, ""], ["Somalia", 20305907, ""], ["Sudan", 53282719, ""], ["Syria", 26472497, ""], ["Tajikistan", 10978599, ""], ["Tunisia", 12415138, ""], ["Turkey", 87926082, ""], ["Turkmenistan", 7736632, ""], ["United Arab Emirates", 11574682, ""], ["Uzbekistan", 37724223, ""], ["Yemen", 42961653, ""]], "def": "Indonesia; North Africa from Morocco to Egypt; Mali, Mauritania, Chad, Sudan, Somalia, Djibouti, Comoros; the Arabian Peninsula; Iraq, Syria, Jordan, Lebanon, Turkey, Iran; Kazakhstan, Tajikistan, Uzbekistan, Turkmenistan, Kyrgyzstan; Azerbaijan; Afghanistan, Pakistan, Bangladesh; Brunei, Maldives", "note": ""}, {"name": "SubSahara", "total": 1227647456, "pct": 14.8, "countries": [["Angola", 40215179, ""], ["Benin", 15170419, ""], ["Botswana", 2603388, ""], ["Burkina Faso", 24601700, ""], ["Burundi", 14729157, ""], ["Cabo Verde", 529630, ""], ["Cameroon", 30640817, ""], ["Central African Republic", 5698984, ""], ["Côte d'Ivoire", 33494346, ""], ["DR Congo", 116452162, ""], ["Equatorial Guinea", 1984468, ""], ["Eritrea", 3682669, ""], ["Eswatini", 1269859, ""], ["Ethiopia", 138902185, ""], ["Gabon", 2647399, ""], ["Gambia", 2884079, ""], ["Ghana", 35697557, ""], ["Guinea", 15441993, ""], ["Guinea-Bissau", 2297808, ""], ["Kenya", 58636412, ""], ["Lesotho", 2389336, ""], ["Liberia", 5853949, ""], ["Madagascar", 33522052, ""], ["Malawi", 22785535, ""], ["Mauritius", 1265059, ""], ["Mozambique", 36639851, ""], ["Namibia", 3153246, ""], ["Niger", 28814878, ""], ["Nigeria", 242431832, ""], ["Republic of the Congo", 6637785, ""], ["Rwanda", 14889693, ""], ["Senegal", 19366548, ""], ["Seychelles", 134959, ""], ["Sierra Leone", 8996745, ""], ["South Africa", 65453084, ""], ["South Sudan", 12436037, ""], ["São Tomé and Príncipe", 244994, ""], ["Tanzania", 72563780, ""], ["Togo", 9930918, ""], ["Uganda", 52761469, ""], ["Zambia", 22521915, ""], ["Zimbabwe", 17273580, ""]], "def": "Africa minus the Islam group", "note": ""}, {"name": "Latin America & Caribbean", "total": 667208135, "pct": 8.05, "countries": [["Antigua and Barbuda", 94626, ""], ["Argentina", 46003734, ""], ["Bahamas", 404628, ""], ["Barbados", 282724, ""], ["Belize", 428644, ""], ["Bolivia", 12749291, ""], ["Brazil", 213562666, ""], ["Chile", 19945850, ""], ["Colombia", 53936226, ""], ["Costa Rica", 5174789, ""], ["Cuba", 10892659, ""], ["Dominica", 65511, ""], ["Dominican Republic", 11609500, ""], ["Ecuador", 18444506, ""], ["El Salvador", 6391253, ""], ["Grenada", 117362, ""], ["Guatemala", 18967978, ""], ["Guyana", 840890, ""], ["Haiti", 12037506, ""], ["Honduras", 11184760, ""], ["Jamaica", 2833403, ""], ["Mexico", 132997658, ""], ["Nicaragua", 7097329, ""], ["Panama", 4625718, ""], ["Paraguay", 7095279, ""], ["Peru", 34922148, ""], ["Saint Kitts and Nevis", 46992, ""], ["Saint Lucia", 180488, ""], ["Saint Vincent and the Grenadines", 99245, ""], ["Suriname", 645256, ""], ["Trinidad and Tobago", 1513268, ""], ["Uruguay", 3382537, ""], ["Venezuela", 28633711, ""]], "def": "South and Central America, Mexico, and the Caribbean island nations", "note": ""}, {"name": "China", "total": 1421015879, "pct": 17.13, "countries": [["China", 1421015879, "incl. Hong Kong, Macao"]], "def": "China", "note": ""}, {"name": "SouthAsia", "total": 1530405515, "pct": 18.45, "countries": [["Bhutan", 802214, ""], ["India", 1476625576, ""], ["Nepal", 29629410, ""], ["Sri Lanka", 23348315, ""]], "def": "India, Nepal, Sri Lanka, Bhutan", "note": ""}, {"name": "Western Pacific", "total": 314763882, "pct": 3.8, "countries": [["Japan", 122427731, ""], ["Philippines", 117724471, ""], ["South Korea", 51600388, ""], ["Taiwan", 23011292, "not a UN member; included because you named it"]], "def": "Japan, South Korea, Taiwan, Philippines", "note": ""}, {"name": "SEAsia", "total": 297237963, "pct": 3.58, "countries": [["Cambodia", 18051219, ""], ["Laos", 7974017, ""], ["Malaysia", 36385115, ""], ["Myanmar", 55184819, ""], ["Singapore", 5905748, ""], ["Thailand", 71559614, ""], ["Vietnam", 102177431, ""]], "def": "Malaysia, Thailand, Cambodia, Vietnam, Singapore, Laos, Myanmar", "note": ""}, {"name": "ROW", "total": 104470216, "pct": 1.26, "countries": [["Andorra", 83753, ""], ["Armenia", 2930915, ""], ["Bosnia and Herzegovina", 3114242, ""], ["Fiji", 937282, ""], ["Georgia", 3804642, ""], ["Kiribati", 138445, ""], ["Marshall Islands", 35075, ""], ["Micronesia", 114183, ""], ["Moldova", 2961253, ""], ["Mongolia", 3556798, ""], ["Nauru", 12101, ""], ["North Korea", 26633691, ""], ["Palau", 17614, ""], ["Papua New Guinea", 10947848, ""], ["Samoa", 220528, ""], ["San Marino", 33605, ""], ["Serbia", 6641964, ""], ["Solomon Islands", 858288, ""], ["Timor-Leste", 1436923, ""], ["Tonga", 103291, ""], ["Tuvalu", 9362, ""], ["Ukraine", 39535849, ""], ["Vanuatu", 342564, ""]], "def": "All other UN member states", "note": ""}], "world": 8293149390};
+// Blocs: [name, one-line description, World Bank ISO3 codes]. "TWN" is not a World Bank row; it is derived below.
+const BLOCS = [
+  ["The West","The First World","ALB AUS AUT BEL BGR CAN HRV CYP CZE DNK EST FIN FRA DEU GRC HUN ISL IRL ISR ITA LVA LIE LTU LUX MLT MCO MNE NLD NZL MKD NOR POL PRT ROU SVK SVN ESP SWE CHE GBR USA"],
+  ["Rus","Ukraine is not in Rus; it is in ROW.","BLR RUS"],
+  ["Islam","Muslim countries","AFG DZA AZE BHR BGD BRN TCD COM DJI EGY IDN IRN IRQ JOR KAZ KWT KGZ LBN LBY MDV MLI MRT MAR OMN PAK QAT SAU SOM SDN SYR TJK TUN TUR TKM ARE UZB YEM"],
+  ["SubSahara","Africa minus the Islam group","AGO BEN BWA BFA BDI CPV CMR CAF CIV COD GNQ ERI SWZ ETH GAB GMB GHA GIN GNB KEN LSO LBR MDG MWI MUS MOZ NAM NER NGA COG RWA SEN SYC SLE ZAF SSD STP TZA TGO UGA ZMB ZWE"],
+  ["Latin America & Caribbean","","ATG ARG BHS BRB BLZ BOL BRA CHL COL CRI CUB DMA DOM ECU SLV GRD GTM GUY HTI HND JAM MEX NIC PAN PRY PER KNA LCA VCT SUR TTO URY VEN"],
+  ["China","","CHN"],
+  ["SouthAsia","","BTN IND NPL LKA"],
+  ["Western Pacific","","JPN PHL KOR TWN"],
+  ["SEAsia","","KHM LAO MYS MMR SGP THA VNM"],
+  ["ROW","All other UN member states","AND ARM BIH FJI GEO KIR MHL FSM MDA MNG NRU PRK PLW PNG WSM SMR SRB SLB TLS TON TUV UKR VUT"]
+];
+// Territories the World Bank lists separately, folded into the country that governs them: [codes, roster note]
+const PARTS = {
+  USA:["PRI GUM VIR ASM MNP","incl. Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern Mariana Islands"],
+  DNK:["GRL FRO","incl. Greenland, Faroe Islands"],
+  FRA:["NCL PYF MAF","incl. overseas departments, New Caledonia, French Polynesia, Saint Martin"],
+  NLD:["ABW CUW SXM","incl. Aruba, Curaçao, Sint Maarten"],
+  GBR:["IMN CHI CYM BMU TCA GIB VGB","incl. Isle of Man, Channel Islands, Cayman Islands, Bermuda, Turks & Caicos, Gibraltar, British Virgin Islands"],
+  CHN:["HKG MAC","incl. Hong Kong, Macao"],
+  SRB:["XKX","incl. Kosovo"]
+};
+const LEFT_OUT = ["PSE"];  // the only other World Bank economy: West Bank and Gaza
+// Display names where the World Bank's differ (anything not here uses the World Bank name)
+const NAME = {BHS:"Bahamas",BRN:"Brunei",CIV:"Côte d'Ivoire",COD:"DR Congo",COG:"Republic of the Congo",EGY:"Egypt",GMB:"Gambia",
+  IRN:"Iran",KGZ:"Kyrgyzstan",KOR:"South Korea",PRK:"North Korea",LAO:"Laos",FSM:"Micronesia",NRU:"Nauru",RUS:"Russia",
+  SVK:"Slovakia",SOM:"Somalia",STP:"São Tomé and Príncipe",KNA:"Saint Kitts and Nevis",LCA:"Saint Lucia",
+  VCT:"Saint Vincent and the Grenadines",SYR:"Syria",TUR:"Turkey",VEN:"Venezuela",VNM:"Vietnam",YEM:"Yemen",TWN:"Taiwan"};
+const NOTE = {TWN:"not a UN member; included because you named it"};
 const COLORS = {"The West":"#8fb8de","Rus":"#c9a7de","Islam":"#7fc8a9","SubSahara":"#e8b86a","Latin America & Caribbean":"#f2a6a0",
   "China":"#e7d36f","SouthAsia":"#f0a35e","Western Pacific":"#9fd3dc","SEAsia":"#b9cf7f","ROW":"#c4c9cf"};
 const fmt = n => n.toLocaleString("en-US");
-const fmtM = n => n >= 1e9 ? (n/1e9).toFixed(2)+" B" : (n/1e6).toFixed(0)+" M";
 
-// summary table, largest first
-const bySize = [...D.groups].sort((a,b)=>b.total-a.total);
-document.getElementById("sumBody").innerHTML = bySize.map(g =>
-  `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span>${g.name}</td>
-   <td class="r num">${g.countries.length}</td><td class="r num">${fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
-document.getElementById("totN").textContent = D.groups.reduce((s,g)=>s+g.countries.length,0);
-document.getElementById("totP").textContent = fmt(D.world);
+// Most recent population for every World Bank country and aggregate (World = "WLD")
+fetch("https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=1000&mrnev=1")
+  .then(r => r.json())
+  .then(([, rows]) => render(rows))
+  .catch(() => {
+    document.getElementById("year").textContent = "(unavailable)";
+    document.getElementById("sumBody").innerHTML = `<tr><td colspan="4">Couldn’t load population data from the World Bank. Try reloading the page.</td></tr>`;
+  });
 
-// rosters, largest bloc first (same order as the summary table); countries alphabetical
-document.getElementById("rosters").innerHTML = bySize.map(g => `
-  <article class="bloc" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
-    <div class="bloc-head"><h3>${g.name}</h3>
-      <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${fmt(g.total)} people · ${g.pct.toFixed(1)}%</span></div>
-    <p class="def">${g.def}</p>${g.note?`<p class="def"><i>${g.note}</i></p>`:""}
-    <ul class="roster">${g.countries.map(([c,p,n]) =>
-      `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${fmt(p)}</span></li>`).join("")}</ul>
-  </article>`).join("");
+function render(rows) {
+  const pop = {}, name = {};
+  rows.forEach(r => { pop[r.countryiso3code] = r.value; name[r.countryiso3code] = r.country.value; });
+  const codes = s => s.split(" ");
+  const withParts = c => pop[c] + (PARTS[c] ? codes(PARTS[c][0]).reduce((s,p)=>s+pop[p],0) : 0);
 
-// pie: small slices placed between large ones so their outside labels don't collide
-const order = ["SouthAsia","Rus","China","SEAsia","Islam","ROW","SubSahara","Western Pacific","The West","Latin America & Caribbean"];
-const pieData = order.map(n => D.groups.find(g=>g.name===n));
-const css = getComputedStyle(document.documentElement);
-Chart.register(ChartDataLabels);
-new Chart(document.getElementById("pie"), {
-  type:"pie",
-  data:{labels:pieData.map(g=>g.name),
-    datasets:[{data:pieData.map(g=>g.total),backgroundColor:pieData.map(g=>COLORS[g.name]),
-      borderColor:css.getPropertyValue("--bg").trim(),borderWidth:2}]},
-  options:{responsive:true,maintainAspectRatio:false,rotation:-90,
-    layout:{padding:56},
-    animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
-    plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${fmt(g.total)} (${g.pct.toFixed(1)}%)`;}}},
-      datalabels:{
-        font:{family:"Public Sans, system-ui, sans-serif",weight:"600",size:12},
-        textAlign:"center",
-        color:c=> pieData[c.dataIndex].pct>=5 ? "#111" : css.getPropertyValue("--fg").trim(),
-        anchor:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
-        align:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
-        offset:4,
-        formatter:(v,c)=>{const g=pieData[c.dataIndex];return g.name+"\n"+g.pct.toFixed(1)+"%";}
-      }}}
-});
+  // Taiwan = World Bank world total minus every economy it lists
+  const listed = BLOCS.flatMap(b => codes(b[2])).filter(c => c !== "TWN");
+  pop.TWN = pop.WLD - listed.reduce((s,c)=>s+withParts(c),0) - LEFT_OUT.reduce((s,c)=>s+pop[c],0);
+
+  const groups = BLOCS.map(([gName, def, list]) => {
+    const countries = codes(list).map(c => [NAME[c] || name[c], withParts(c), NOTE[c] || (PARTS[c] ? PARTS[c][1] : "")])
+      .sort((a,b) => a[0].localeCompare(b[0]));
+    return {name:gName, def, countries, total:countries.reduce((s,c)=>s+c[1],0)};
+  });
+  const world = groups.reduce((s,g)=>s+g.total,0);
+  groups.forEach(g => g.pct = g.total/world*100);
+
+  document.getElementById("year").textContent = rows.find(r => r.countryiso3code === "WLD").date;
+  document.getElementById("leftOut").textContent = (LEFT_OUT.reduce((s,c)=>s+pop[c],0)/1e6).toFixed(1);
+
+  // summary table, largest first
+  const bySize = [...groups].sort((a,b)=>b.total-a.total);
+  document.getElementById("sumBody").innerHTML = bySize.map(g =>
+    `<tr><td><span class="sw" style="background:${COLORS[g.name]}"></span>${g.name}</td>
+     <td class="r num">${g.countries.length}</td><td class="r num">${fmt(g.total)}</td><td class="r num">${g.pct.toFixed(1)}%</td></tr>`).join("");
+  document.getElementById("totN").textContent = groups.reduce((s,g)=>s+g.countries.length,0);
+  document.getElementById("totP").textContent = fmt(world);
+
+  // rosters, largest bloc first (same order as the summary table); countries alphabetical; one-line description where there is one
+  document.getElementById("rosters").innerHTML = bySize.map(g => `
+    <article class="bloc" style="border-top-color:${COLORS[g.name]};border-top-width:3px">
+      <div class="bloc-head"><h3>${g.name}</h3>
+        <span class="stat num">${g.countries.length} ${g.countries.length===1?"state":"states"} · ${fmt(g.total)} people · ${g.pct.toFixed(1)}%</span></div>
+      ${g.def?`<p class="def">${g.def}</p>`:""}
+      <ul class="roster">${g.countries.map(([c,p,n]) =>
+        `<li><span class="n">${c}${n?`<small>${n}</small>`:""}</span><span class="p num">${fmt(p)}</span></li>`).join("")}</ul>
+    </article>`).join("");
+
+  // pie: small slices placed between large ones so their outside labels don't collide
+  const order = ["SouthAsia","Rus","China","SEAsia","Islam","ROW","SubSahara","Western Pacific","The West","Latin America & Caribbean"];
+  const pieData = order.map(n => groups.find(g=>g.name===n));
+  const css = getComputedStyle(document.documentElement);
+  Chart.register(ChartDataLabels);
+  new Chart(document.getElementById("pie"), {
+    type:"pie",
+    data:{labels:pieData.map(g=>g.name),
+      datasets:[{data:pieData.map(g=>g.total),backgroundColor:pieData.map(g=>COLORS[g.name]),
+        borderColor:css.getPropertyValue("--bg").trim(),borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,rotation:-90,
+      layout:{padding:56},
+      animation:window.matchMedia("(prefers-reduced-motion: reduce)").matches?false:{duration:700},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>{const g=pieData[c.dataIndex];return `${g.name}: ${fmt(g.total)} (${g.pct.toFixed(1)}%)`;}}},
+        datalabels:{
+          font:{family:"Public Sans, system-ui, sans-serif",weight:"600",size:12},
+          textAlign:"center",
+          color:c=> pieData[c.dataIndex].pct>=5 ? "#111" : css.getPropertyValue("--fg").trim(),
+          anchor:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
+          align:c=> pieData[c.dataIndex].pct>=5 ? "center" : "end",
+          offset:4,
+          formatter:(v,c)=>{const g=pieData[c.dataIndex];return g.name+"\n"+g.pct.toFixed(1)+"%";}
+        }}}
+  });
+}
 </script>
 
 </body></html>
