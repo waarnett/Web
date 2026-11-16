@@ -66,6 +66,18 @@
       opacity: 0.08;
       pointer-events: none;
     }
+    /* Closed outline around each division's teams (single-conference view only) */
+    .division-curve {
+      fill: none;
+      fill-rule: evenodd;
+      stroke-width: 2;
+      stroke-linejoin: round;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .division-curve.dimmed {
+      opacity: 0.15;
+    }
 
     .conf-btn.active {
       background: #2563eb;
@@ -161,6 +173,8 @@
         <path id="state-borders-mesh" class="state-borders"></path>
         <path id="nation-border-mesh" class="nation-border"></path>
         <g id="teams-marker-layer"></g>
+        <!-- Division outlines (on top of the team circles), drawn only when a single conference is shown (renderDivisionCurves) -->
+        <g id="division-curves-layer"></g>
       </g>
     </svg>
 
@@ -2005,6 +2019,307 @@
           item.classed("dimmed", true);
         }
       });
+
+      renderDivisionCurves();
+    }
+
+    // One outline color per division (same in AFC and NFC)
+    const DIVISION_CURVE_COLORS = { West: "#ea580c", North: "#2563eb", South: "#16a34a", East: "#9333ea" };
+    const divisionCurveCache = {};   // conference -> { division: SVG path data }
+
+    /**
+     * Draw a closed curve around each division's teams when only one conference is shown.
+     * Each outline starts as the convex hull of the division's team circles (a few pixels outside them),
+     * so it is as convex as possible, minus any hull triangle that would reach toward another division's
+     * team. Where two divisions' shapes still overlap, the overlap is split between them, so the outlines
+     * never cross. Where two circles of different divisions overlap (Colts /
+     * Bengals), the split runs through the two points where those circles intersect.
+     */
+    function renderDivisionCurves() {
+      const layer = d3.select("#division-curves-layer");
+      const conf = currentConference;
+      const confTeams = NFL_TEAMS.filter(t => t.conference === conf);
+      if (conf === "BOTH" || confTeams.some(t => t.screenX === undefined)) {
+        layer.selectAll("*").remove();
+        return;
+      }
+
+      if (!divisionCurveCache[conf]) divisionCurveCache[conf] = computeDivisionCurves(confTeams);
+      const paths = divisionCurveCache[conf];
+
+      layer.selectAll("path")
+        .data(Object.keys(paths), d => d)
+        .join("path")
+        .attr("class", "division-curve")
+        .attr("stroke", div => DIVISION_CURVE_COLORS[div])
+        .attr("d", div => paths[div])
+        .classed("dimmed", div => currentDivision !== "ALL" && div !== currentDivision);
+    }
+
+    function computeDivisionCurves(confTeams) {
+      const GAP = 4;          // pixels between a team's circle and its division's outline
+      const SEP = 4;          // spacing between outlines of different divisions
+      const SEP_TOUCH = 2;    // spacing where circles of two divisions overlap (outlines meet at the intersection points)
+      const STEP = 2;         // sampling grid spacing (SVG units)
+      const PAD = 40;
+      const x0 = -PAD, y0 = -PAD;
+      const nx = Math.ceil((975 + 2 * PAD) / STEP), ny = Math.ceil((610 + 2 * PAD) / STEP);
+
+      // Team circle radius as drawn by renderTeamMarkers (logo half-size + 2)
+      const ringRadius = t => (t.id === "bal" ? 12.5 : 15) + 2;
+      const HULL_PAD = 17 + GAP;
+
+      const segDist = (px, py, ax, ay, bx, by) => {
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+        return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+      };
+
+      // Per division: a minimum spanning tree joining its teams, avoiding edges that run past other
+      // divisions' teams (closer than the edge's own end teams already are). The tree keeps each
+      // division's shape in one piece.
+      const TOL = 6;
+      const divisions = [...new Set(confTeams.map(t => t.division))];
+      const shapes = divisions.map(div => {
+        const members = confTeams.filter(t => t.division === div);
+        const others = confTeams.filter(t => t.division !== div);
+        const edges = [];
+        for (let i = 0; i < members.length; i++) {
+          for (let j = i + 1; j < members.length; j++) {
+            const a = members[i], b = members[j];
+            const blocked = others.filter(o => {
+              const d = segDist(o.screenX, o.screenY, a.screenX, a.screenY, b.screenX, b.screenY);
+              const ends = Math.min(Math.hypot(o.screenX - a.screenX, o.screenY - a.screenY),
+                                    Math.hypot(o.screenX - b.screenX, o.screenY - b.screenY));
+              return d < ringRadius(o) + 2 * GAP + SEP && d < ends - TOL;
+            }).length;
+            edges.push({ a: i, b: j, cost: Math.hypot(a.screenX - b.screenX, a.screenY - b.screenY) + blocked * 10000 });
+          }
+        }
+        edges.sort((e, f) => e.cost - f.cost);
+        const root = members.map((_, i) => i);
+        const find = i => (root[i] === i ? i : (root[i] = find(root[i])));
+        const tree = edges.filter(e => {
+          const ra = find(e.a), rb = find(e.b);
+          if (ra === rb) return false;
+          root[ra] = rb;
+          return true;
+        }).map(e => [members[e.a], members[e.b]]);
+        return { div, members, others, tree };
+      });
+
+      // Like Math.max, but rounds the corner where a and b are within k of each other (never less than max)
+      const smoothMax = (a, b, k) => {
+        const h = Math.max(k - Math.abs(a - b), 0) / k;
+        return Math.max(a, b) + h * h * k / 4;
+      };
+      // Distance outside a convex polygon (negative inside)
+      const polyDist = (px, py, poly) => {
+        let d = Infinity;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+          d = Math.min(d, segDist(px, py, poly[j][0], poly[j][1], poly[i][0], poly[i][1]));
+        }
+        return d3.polygonContains(poly, [px, py]) ? -d : d;
+      };
+
+      // Where teams of different divisions sit so close that their padded circles overlap (Colts /
+      // Bengals), the line through the points where the two team circles intersect is a cut line between
+      // them. Every shape piece that uses one of those teams is clipped to that team's side of the line,
+      // so the outline runs straight along the cut. Such pieces are kept as polygons.
+      const pt = t => [t.screenX, t.screenY];
+      const clashes = t => confTeams.filter(o => o.division !== t.division &&
+        Math.hypot(o.screenX - t.screenX, o.screenY - t.screenY) < 2 * HULL_PAD);
+      const isCut = t => clashes(t).length > 0;
+      // Keep the part of a convex polygon where a*x + b*y <= c
+      const clipHalfPlane = (poly, a, b, c) => {
+        const out = [];
+        poly.forEach((p, i) => {
+          const q = poly[(i + 1) % poly.length];
+          const fp = a * p[0] + b * p[1] - c, fq = a * q[0] + b * q[1] - c;
+          if (fp <= 0) out.push(p);
+          if ((fp <= 0) !== (fq <= 0)) {
+            const u = fp / (fp - fq);
+            out.push([p[0] + u * (q[0] - p[0]), p[1] + u * (q[1] - p[1])]);
+          }
+        });
+        return out;
+      };
+      // Clip to t's side of each of its cut lines: points nearer t's circle than o's (by tangent length)
+      const clipToSide = (poly, t) => {
+        clashes(t).forEach(o => {
+          poly = clipHalfPlane(poly, 2 * (o.screenX - t.screenX), 2 * (o.screenY - t.screenY),
+            (o.screenX ** 2 + o.screenY ** 2) - (t.screenX ** 2 + t.screenY ** 2) - ringRadius(o) ** 2 + ringRadius(t) ** 2);
+        });
+        return poly;
+      };
+      // Ends of the cut line across t's padded circle (where it clashes with o)
+      const cutEnds = (t, o) => {
+        const D = Math.hypot(o.screenX - t.screenX, o.screenY - t.screenY);
+        const ux = (o.screenX - t.screenX) / D, uy = (o.screenY - t.screenY) / D;
+        const along = (D * D + ringRadius(t) ** 2 - ringRadius(o) ** 2) / (2 * D);
+        const half = Math.sqrt(Math.max(HULL_PAD ** 2 - along ** 2, 0));
+        const mx = t.screenX + along * ux, my = t.screenY + along * uy;
+        return [[mx - half * uy, my + half * ux], [mx + half * uy, my - half * ux]];
+      };
+      const paddedCircle = t => d3.range(64).map(i =>
+        [t.screenX + HULL_PAD * Math.cos(i * Math.PI / 32), t.screenY + HULL_PAD * Math.sin(i * Math.PI / 32)]);
+      const polyPiece = (teams, poly) => {
+        const xs = poly.map(v => v[0]), ys = poly.map(v => v[1]);
+        return { teams, poly, x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+      };
+      // Shape pieces covering the padded convex hull of some of a division's teams (one, two or three).
+      // A piece with a cut team is clipped to that team's side of the cut line. Clipped alone, a piece
+      // joining it to other teams would follow the cut line until it runs into them, so the cut line is
+      // extended only CUT_EXTEND past the padded circles, and a second piece runs straight from that corner
+      // to the other teams.
+      const CUT_EXTEND = HULL_PAD;
+      // Keep the part of convex polygon poly inside convex polygon clip
+      const clipToPoly = (poly, clip) => {
+        const cx = d3.mean(clip, v => v[0]), cy = d3.mean(clip, v => v[1]);
+        clip.forEach((p, i) => {
+          const q = clip[(i + 1) % clip.length];
+          let a = q[1] - p[1], b = p[0] - q[0], c = a * p[0] + b * p[1];
+          if (a * cx + b * cy > c) { a = -a; b = -b; c = -c; }
+          poly = clipHalfPlane(poly, a, b, c);
+        });
+        return poly;
+      };
+      const makePieces = teams => {
+        if (!teams.some(isCut)) return [{ teams }];
+        const hull = d3.polygonHull(teams.flatMap(paddedCircle));
+        let poly = hull;
+        teams.filter(isCut).forEach(t => { poly = clipToSide(poly, t); });
+        const pieces = [polyPiece(teams, poly)];
+        teams.filter(isCut).forEach(t => {
+          const others = teams.filter(m => m !== t);
+          if (!others.length) return;
+          const cx = d3.mean(others, m => m.screenX), cy = d3.mean(others, m => m.screenY);
+          clashes(t).forEach(o => {
+            // Extend the cut line at its end facing the other teams
+            const ends = cutEnds(t, o);
+            const mx = (ends[0][0] + ends[1][0]) / 2, my = (ends[0][1] + ends[1][1]) / 2;
+            const corner = ends.map(([ex, ey]) => {
+              const d = Math.hypot(ex - mx, ey - my);
+              return [ex + (ex - mx) / d * CUT_EXTEND, ey + (ey - my) / d * CUT_EXTEND];
+            }).sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy))[0];
+            // The bridge never reaches beyond the piece's plain hull
+            let bridge = clipToPoly(d3.polygonHull([corner, ...others.flatMap(paddedCircle)]), hull);
+            others.filter(isCut).forEach(m => { bridge = clipToSide(bridge, m); });
+            pieces.push(polyPiece(teams, bridge));
+          });
+        });
+        return pieces;
+      };
+      // Distance outside a piece (negative inside). Unless exact, far from a polygon piece its
+      // bounding-box distance (a lower bound) is returned, which is all the sampling grid needs.
+      const pieceDist = (px, py, pc, exact = false) => {
+        if (pc.poly) {
+          const box = Math.hypot(Math.max(pc.x0 - px, 0, px - pc.x1), Math.max(pc.y0 - py, 0, py - pc.y1));
+          return box > 10 && !exact ? box : polyDist(px, py, pc.poly);
+        }
+        const [a, b, c] = pc.teams;
+        if (!b) return Math.hypot(px - a.screenX, py - a.screenY) - HULL_PAD;
+        if (!c) return segDist(px, py, a.screenX, a.screenY, b.screenX, b.screenY) - HULL_PAD;
+        return polyDist(px, py, [pt(a), pt(b), pt(c)]) - HULL_PAD;
+      };
+
+      // Each division's shape is the union of pieces: its team circles, its tree, and the triangles between
+      // its teams. With every triangle that is the convex hull. A triangle is left out when it would reach
+      // toward another division's team (closer than that team's circle plus GAP + SEP) and get clearly
+      // closer to it than the circles and tree already do, so the outline doesn't sprawl into other
+      // divisions' ground.
+      shapes.forEach(s => {
+        s.pieces = [...s.members, ...s.tree].flatMap(m => makePieces(Array.isArray(m) ? m : [m]));
+        const baseDist = o => Math.min(...s.pieces.map(pc => pieceDist(o.screenX, o.screenY, pc, true)));
+        const tIdx = d3.Delaunay.from(s.members.map(pt)).triangles;
+        for (let i = 0; i < tIdx.length; i += 3) {
+          const tri = makePieces([s.members[tIdx[i]], s.members[tIdx[i + 1]], s.members[tIdx[i + 2]]]);
+          const reachesOther = s.others.some(o => {
+            const d = Math.min(...tri.map(pc => pieceDist(o.screenX, o.screenY, pc, true)));
+            return d < ringRadius(o) + GAP + SEP && d < baseDist(o) - TOL;
+          });
+          if (!reachesOther) s.pieces.push(...tri);
+        }
+      });
+
+      // Distance outside the padded shape (negative inside)
+      const shapeDist = (px, py, s) => {
+        let d = Infinity;
+        for (const pc of s.pieces) d = Math.min(d, pieceDist(px, py, pc));
+        return d;
+      };
+      // Distance to the division's team circles (0 on a circle, negative inside one). Between two overlapping
+      // circles of different divisions, equal distance runs through their intersection points.
+      const ringDist = (px, py, s) => {
+        let d = Infinity;
+        s.members.forEach(t => { d = Math.min(d, Math.hypot(px - t.screenX, py - t.screenY) - ringRadius(t)); });
+        return d;
+      };
+
+      // The cut lines between overlapping circles of different divisions. Right at a cut, the two outlines
+      // run side by side (SEP_TOUCH apart) and may come close to the other team's circle; full spacing and
+      // the GAP around the other division's circles return within CUT_EASE pixels of it.
+      const CUT_EASE = 12;
+      const cuts = confTeams.flatMap(t => clashes(t).map(o => cutEnds(t, o)));
+      const cutRamp = (px, py) => Math.min(1,
+        Math.min(Infinity, ...cuts.map(([a, b]) => segDist(px, py, a[0], a[1], b[0], b[1]))) / CUT_EASE);
+
+      const shapeF = shapes.map(() => new Float32Array(nx * ny));
+      const rampF = new Float32Array(nx * ny);
+      const ringF = shapes.map(() => new Float32Array(nx * ny));
+      for (let j = 0; j < ny; j++) {
+        const py = y0 + (j + 0.5) * STEP;
+        for (let i = 0; i < nx; i++) {
+          const px = x0 + (i + 0.5) * STEP;
+          rampF[j * nx + i] = cutRamp(px, py);
+          shapes.forEach((s, k) => {
+            shapeF[k][j * nx + i] = shapeDist(px, py, s);
+            ringF[k][j * nx + i] = ringDist(px, py, s);
+          });
+        }
+      }
+
+      // A point is inside a division when it is inside its shape and, for every other division whose
+      // shape also reaches the point, either
+      //   - it is clearly deeper inside this division's shape and not within GAP of the other division's
+      //     circles, or
+      //   - it is on or within GAP of one of this division's circles and clearly nearer it than the other
+      //     division's circles.
+      // Deeper-wins keeps the shapes' straight sides straight. Two divisions can never both claim a point,
+      // so their outlines can't cross. The outline is the 0-level contour.
+      const contour = d3.contours().size([nx, ny]).thresholds([0]);
+      const line = d3.line().curve(d3.curveCatmullRomClosed);
+      const toSvg = ([gx, gy]) => [x0 + gx * STEP, y0 + gy * STEP];
+      const result = {};
+      shapes.forEach((s, k) => {
+        const values = new Float64Array(nx * ny);
+        for (let c = 0; c < values.length; c++) {
+          let f = shapeF[k][c];
+          shapes.forEach((_, m) => {
+            if (m === k) return;
+            const rk = ringF[k][c], rm = ringF[m][c];
+            const sep = SEP_TOUCH + (SEP - SEP_TOUCH) * rampF[c];
+            const guard = GAP * rampF[c];
+            const deeper = Math.max(shapeF[k][c] - shapeF[m][c] + sep, sep + guard - rm);  // < 0: deeper here, clear of their circles
+            const ownCircle = Math.max(rk - guard, rk - rm + sep);                          // < 0: at our circle, nearer ours
+            const beyondOther = sep - shapeF[m][c];                                         // < 0: outside the other's shape
+            // Smoothing only ever shrinks a region; it rounds off the dents another division makes in it.
+            // It is kept small at overlapping circles so the outlines still meet at the intersection points.
+            f = smoothMax(f, Math.min(deeper, ownCircle, beyondOther), sep);
+          });
+          values[c] = -f;
+        }
+        const [multi] = contour(values);
+        // Keep only the piece holding this division's teams (drops stray slivers). Each ring comes back
+        // closed (last point repeats the first); drop that point for the closed curve.
+        const holdsTeam = polygon => s.members.some(t =>
+          d3.polygonContains(polygon[0], [(t.screenX - x0) / STEP, (t.screenY - y0) / STEP]));
+        result[s.div] = multi.coordinates
+          .filter(holdsTeam)
+          .flatMap(polygon => polygon.map(ring => line(ring.slice(0, -1).map(toSvg))))
+          .join("");
+      });
+      return result;
     }
 
     function sortTeamsByStandings(teams) {
