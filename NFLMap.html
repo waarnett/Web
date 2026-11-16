@@ -1529,9 +1529,13 @@
       }
 
       grid.innerHTML = "";
-      const games = currentWeekGames.length > 0
-        ? currentWeekGames
-        : EMBEDDED_GAMES.filter(g => g.week === currentWeekNumber);
+      // Show games in kickoff order (earliest first); games without a start time go last.
+      // Sort is stable, so games sharing a kickoff keep their original order.
+      const kickoffMs = g => g.startISO ? new Date(g.startISO).getTime() : Infinity;
+      const games = (currentWeekGames.length > 0
+        ? [...currentWeekGames]
+        : EMBEDDED_GAMES.filter(g => g.week === currentWeekNumber))
+        .sort((a, b) => kickoffMs(a) - kickoffMs(b));
 
       games.forEach(g => {
         const awayTeam = NFL_TEAMS.find(t => t.id === g.away);
