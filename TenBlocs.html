@@ -51,7 +51,6 @@ a.jump{color:inherit;text-decoration:none}
 a.jump:hover{text-decoration:underline}
 .bloc{scroll-margin-top:16px}
 @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
-.rosters-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px}
 .sortbtn{font:inherit;font-size:13px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
 .sortbtn:hover{border-color:var(--muted)}
 /* data buttons under the intro: the one showing is filled in */
@@ -64,10 +63,15 @@ a.jump:hover{text-decoration:underline}
   <header>
     <h1 id="title">World population in ten blocs</h1>
     <p class="lede">All 193 UN member states plus Taiwan, assigned to ten groups. Dependent territories are counted inside the country that governs them. Figures are <span id="year">…</span> estimates.</p>
-    <div class="metric" role="group" aria-label="Data shown">
-      <button type="button" class="sortbtn" data-m="pop" aria-pressed="true">Population</button>
-      <button type="button" class="sortbtn" data-m="gdp" aria-pressed="false" disabled title="Loading GDP data…">GDP (nominal)</button>
-      <button type="button" class="sortbtn" data-m="ppp" aria-pressed="false" disabled title="Loading GDP data…">GDP (PPP)</button>
+    <p class="lede" id="stale" hidden></p>
+    <!-- the three data buttons, then the country-list sort button at the far end of the same line -->
+    <div class="metric">
+      <div role="group" aria-label="Data shown" style="display:contents">
+        <button type="button" class="sortbtn" data-m="pop" aria-pressed="true">Population</button>
+        <button type="button" class="sortbtn" data-m="gdp" aria-pressed="false" disabled title="Loading GDP data…">GDP (nominal)</button>
+        <button type="button" class="sortbtn" data-m="ppp" aria-pressed="false" disabled title="Loading GDP data…">GDP (PPP)</button>
+      </div>
+      <button type="button" class="sortbtn" id="sortBtn" style="margin-left:auto">Sort by population</button>
     </div>
   </header>
 
@@ -83,18 +87,18 @@ a.jump:hover{text-decoration:underline}
   </section>
 
   <section style="display:grid;gap:28px">
-    <div class="rosters-head"><h2>Countries in each bloc</h2>
-      <button type="button" class="sortbtn" id="sortBtn">Sort by population</button></div>
+    <h2>Countries in each bloc</h2>
     <div id="rosters" style="display:grid;gap:28px"></div>
   </section>
 
-  <!-- the ten largest states for whichever data set is showing -->
-  <section style="display:grid;gap:14px">
+  <!-- the ten largest states for whichever data set is showing; double gray rules above and below set it apart -->
+  <section style="display:grid;gap:14px;border-block:6px double var(--muted);padding-block:24px">
     <h2>Top 10 countries</h2>
     <div class="tablewrap">
       <table>
         <thead><tr><th class="r">#</th><th>Country</th><th class="r" id="topCol">Population</th><th class="r">Share</th><th>Bloc</th></tr></thead>
         <tbody id="topBody"></tbody>
+        <tfoot><tr><td></td><td>Total</td><td class="r num" id="topTot"></td><td class="r num" id="topPct"></td><td></td></tr></tfoot>
       </table>
     </div>
   </section>
@@ -168,12 +172,32 @@ const imf = ind => fetch(`https://api.imf.org/external/sdmx/3.0/data/dataflow/IM
     return out;
   });
 
+// The last good download of each source is kept in this browser; when a source can't be reached, the saved copy
+// is used instead and a note under the intro says so. Resolves to the data, or null if there is neither.
+const stale = [];
+const cached = (key, label, get) => get().then(data => {
+  try { localStorage.setItem("tenblocs:" + key, JSON.stringify({saved:Date.now(), data})); } catch {}
+  return data;
+}, () => {
+  let c = null;
+  try { c = JSON.parse(localStorage.getItem("tenblocs:" + key)); } catch {}
+  if (!c) return null;
+  stale.push(`${label} saved ${new Date(c.saved).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})}`);
+  const note = document.getElementById("stale");
+  note.textContent = `Some sources couldn’t be reached, so this page is using copies saved earlier in this browser: ${stale.join("; ")}.`;
+  note.hidden = false;
+  return c.data;
+});
+
 // Population from the World Bank (most recent year; World = "WLD"), GDP from the IMF. The page draws as soon as
 // population arrives; each GDP button turns on when its IMF data arrives (the IMF can take several seconds).
-const gdpData = imf("NGDPD").catch(() => null), pppData = imf("PPPGDP").catch(() => null);
-fetch("https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=1000&mrnev=1")
+const gdpData = cached("gdp", "IMF GDP", () => imf("NGDPD")), pppData = cached("ppp", "IMF GDP (PPP)", () => imf("PPPGDP"));
+// only the fields the page uses are kept, so the saved copy stays small
+cached("pop", "World Bank population", () => fetch("https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=1000&mrnev=1")
   .then(r => r.json())
-  .then(([, rows]) => {
+  .then(([, rows]) => rows.map(r => ({countryiso3code:r.countryiso3code, value:r.value, country:{value:r.country.value}, date:r.date}))))
+  .then(rows => {
+    if (!rows) throw new Error("no population data");
     const addGDP = render(rows);
     gdpData.then(d => addGDP("gdp", d));
     pppData.then(d => addGDP("ppp", d));
@@ -217,7 +241,7 @@ function render(rows) {
   const blocId = n => "bloc-" + n.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const css = getComputedStyle(document.documentElement);
   const sortBtn = document.getElementById("sortBtn");
-  const metricBtns = [...document.querySelectorAll(".metric button")];
+  const metricBtns = [...document.querySelectorAll(".metric button[data-m]")];  // not the sort button on the same line
   // pie: small slices placed between large ones so their outside labels don't collide in any of the three data sets
   const order = ["Rus","China","SouthAsia","Islam","SEAsia","Western Pacific","SubSahara","Latin America & Caribbean","ROW","The West"];
   let cur = "pop", byVal = false, bySize, pieData, chart;
@@ -261,6 +285,10 @@ function render(rows) {
     document.getElementById("topBody").innerHTML = top.map(([c,v,b],i) =>
       `<tr><td class="r num">${i+1}</td><td>${c}</td><td class="r num">${M.fmt(v)}</td><td class="r num">${(v/world*100).toFixed(1)}%</td>
        <td><span class="sw" style="background:${COLORS[b]}"></span><a class="jump" href="#${blocId(b)}">${b}</a></td></tr>`).join("");
+    // total of the ten, and their combined share of the world
+    const topSum = top.reduce((s,c)=>s+c[1],0);
+    document.getElementById("topTot").textContent = M.fmt(topSum);
+    document.getElementById("topPct").textContent = (topSum/world*100).toFixed(1) + "%";
 
     pieData = order.map(n => groups.find(g=>g.name===n));
     if (chart) { chart.data.datasets[0].data = pieData.map(g=>g.total); chart.update(); return; }
@@ -297,7 +325,7 @@ function render(rows) {
 
   return (m, src) => {
     const btn = metricBtns.find(b => b.dataset.m === m);
-    if (!src) { btn.title = "Couldn’t load GDP data from the IMF"; return; }
+    if (!src) { btn.title = "Couldn’t load GDP data from the IMF, and no saved copy"; return; }
     DATA[m] = build(c => src[c]?.[year]);
     btn.disabled = false; btn.title = "";
     // states the IMF has no GDP figure for in that year
