@@ -88,6 +88,17 @@ a.jump:hover{text-decoration:underline}
     <div id="rosters" style="display:grid;gap:28px"></div>
   </section>
 
+  <!-- the ten largest states for whichever data set is showing -->
+  <section style="display:grid;gap:14px">
+    <h2>Top 10 countries</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th class="r">#</th><th>Country</th><th class="r" id="topCol">Population</th><th class="r">Share</th><th>Bloc</th></tr></thead>
+        <tbody id="topBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="notes">
     <h2 style="color:var(--fg)">Judgment calls</h2>
     <p><b>Left out:</b> the State of Palestine and the Holy See (UN observer states, not members), together about <span id="leftOut">…</span> million people. Kosovo is not listed separately; it is counted inside Serbia.</p>
@@ -242,6 +253,14 @@ function render(rows) {
 
     // rosters, largest bloc first (same order as the summary table); one-line description where there is one
     renderRosters();
+
+    // top 10: the ten largest states across all blocs for this data set; each bloc name links to its bloc above
+    const top = groups.flatMap(g => g.countries.filter(c => c[1] !== undefined).map(c => [c[0], c[1], g.name]))
+      .sort((a,b) => b[1]-a[1]).slice(0, 10);
+    document.getElementById("topCol").innerHTML = M.col;
+    document.getElementById("topBody").innerHTML = top.map(([c,v,b],i) =>
+      `<tr><td class="r num">${i+1}</td><td>${c}</td><td class="r num">${M.fmt(v)}</td><td class="r num">${(v/world*100).toFixed(1)}%</td>
+       <td><span class="sw" style="background:${COLORS[b]}"></span><a class="jump" href="#${blocId(b)}">${b}</a></td></tr>`).join("");
 
     pieData = order.map(n => groups.find(g=>g.name===n));
     if (chart) { chart.data.datasets[0].data = pieData.map(g=>g.total); chart.update(); return; }
