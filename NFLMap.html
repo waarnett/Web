@@ -296,6 +296,11 @@
       <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-md">
         <div class="px-4 py-3 bg-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <div class="flex items-center gap-2">
+            <!-- Previous/next week buttons (handlers set up next to showWeek) -->
+            <div class="flex items-center gap-1">
+              <button id="weekly-games-prev" type="button" title="Previous week" aria-label="Previous week" class="w-6 h-6 rounded bg-slate-700 text-[11px] leading-none hover:bg-slate-600 disabled:opacity-30 disabled:cursor-default disabled:hover:bg-slate-700">▲</button>
+              <button id="weekly-games-next" type="button" title="Next week" aria-label="Next week" class="w-6 h-6 rounded bg-slate-700 text-[11px] leading-none hover:bg-slate-600 disabled:opacity-30 disabled:cursor-default disabled:hover:bg-slate-700">▼</button>
+            </div>
             <span id="weekly-games-title" class="text-sm font-bold uppercase tracking-wider">This Week's Games (Week 10)</span>
             <span id="weekly-live-indicator" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">LIVE GAMES ACTIVE</span>
           </div>
@@ -330,7 +335,8 @@
           conference: currentConference,
           division: currentDivision,
           sortByDivision: sortByDivision,
-          pinnedTeamId: pinnedTeam ? pinnedTeam.id : null
+          pinnedTeamId: pinnedTeam ? pinnedTeam.id : null,
+          viewedWeek: viewedWeekNumber
         };
         sessionStorage.setItem(AUTO_REFRESH_STATE_KEY, JSON.stringify(snapshot));
       } catch (e) {}
@@ -361,6 +367,7 @@
         renderDivisionButtons();
         applyFilters();
         renderStandings();
+        if (state.viewedWeek) await showWeek(state.viewedWeek);
 
         if (state.pinnedTeamId) {
           const teamObj = NFL_TEAMS.find(t => t.id === state.pinnedTeamId);
@@ -1030,6 +1037,10 @@
     const liveGamesByTeam = {};
     let currentWeekNumber = 10;
     let currentWeekGames = [];
+    // Week picked with the previous/next buttons; null means follow the current week
+    let viewedWeekNumber = null;
+    let viewedWeekGames = [];
+    let weekNavRequestId = 0;
     let liveRefreshIntervalId = null;
     let currentLiveRefreshMs = null;
     const scheduledKickoffTimers = new Set();
@@ -1102,6 +1113,9 @@
       const hasCloseLateGame = liveGames.some(isCloseLateGame);
       const liveBadge = document.getElementById("weekly-live-indicator");
 
+      // Keep the screen awake only while at least one game is in crunch time
+      setCrunchWakeLock(hasCloseLateGame);
+
       if (hasLiveGames) {
         const desiredIntervalMs = hasCloseLateGame ? (60 * 1000) : (5 * 60 * 1000);
         if (liveBadge) {
@@ -1153,12 +1167,123 @@
       });
     }
 
+    // ---------- keep the screen awake during crunch time ----------
+    // The Screen Wake Lock interface stops the device dimming and auto-locking. The browser drops the
+    // lock whenever the page is hidden (or reloads), so it is requested again when the page becomes
+    // visible or is tapped; some browsers also refuse it until the page has been touched.
+    let crunchWakeLock = null;
+    let crunchWakePending = false;
+    let wantCrunchWakeLock = false;
+
+    function requestCrunchWakeLock() {
+      if (!wantCrunchWakeLock || crunchWakeLock || crunchWakePending || document.hidden) return;
+      if (!("wakeLock" in navigator)) return;
+      crunchWakePending = true;
+      navigator.wakeLock.request("screen").then(lock => {
+        crunchWakePending = false;
+        // Crunch time may have ended while the request was pending
+        if (!wantCrunchWakeLock) { lock.release(); return; }
+        crunchWakeLock = lock;
+        lock.addEventListener("release", () => { crunchWakeLock = null; });
+      }).catch(() => {
+        crunchWakePending = false; // a later tap or visibility change retries
+      });
+    }
+
+    function setCrunchWakeLock(wanted) {
+      wantCrunchWakeLock = wanted;
+      if (wanted) requestCrunchWakeLock();
+      else if (crunchWakeLock) crunchWakeLock.release();
+    }
+
+    ["visibilitychange", "click", "touchend"].forEach(evt =>
+      document.addEventListener(evt, requestCrunchWakeLock));
+
     // Split ESPN's spread text (e.g. "LAR -9.5") into the favorite's team id ("lar") and its line ("-9.5").
     // Returns null when there is no line or no clear favorite (e.g. "EVEN" for a pick'em).
     function parseSpread(details) {
       const m = /^([A-Za-z]+)\s+(-\d+(?:\.\d+)?)$/.exec((details || "").trim());
       return m ? { team: m[1].toLowerCase(), line: m[2] } : null;
     }
+
+    // Turn one ESPN scoreboard event into a game record for the week's tiles; null if it isn't a two-team game
+    function scoreboardEventToGame(ev, fallbackWeek) {
+      const eventWeek = ev.week?.number || fallbackWeek;
+      const comp = ev.competitions?.[0];
+      if (!comp) return null;
+      const state = comp.status?.type?.state;
+      const period = comp.status?.period || 0;
+      const shortDetail = comp.status?.type?.shortDetail || "";
+      const venueCountry = comp.venue?.address?.country;
+      const competitors = comp.competitors || [];
+      if (competitors.length !== 2) return null;
+
+      const homeComp = competitors.find(c => c.homeAway === "home") || competitors[0];
+      const awayComp = competitors.find(c => c.homeAway === "away") || competitors[1];
+
+      const homeId = homeComp.team?.abbreviation?.toLowerCase();
+      const awayId = awayComp.team?.abbreviation?.toLowerCase();
+      const homeScore = homeComp.score?.displayValue ?? homeComp.score ?? null;
+      const awayScore = awayComp.score?.displayValue ?? awayComp.score ?? null;
+
+      let status = "UPCOMING";
+      if (state === "in") status = "LIVE";
+      else if (state === "post") status = "FINAL";
+
+      const intl = isInternationalGame(eventWeek, homeId, awayId, venueCountry);
+
+      // ESPN gives the ESPN team id of the team with the ball; map it to our team id.
+      // Missing at times such as halftime or between quarters, in which case no one is marked.
+      const possessionComp = competitors.find(c => c.team?.id && c.team.id === comp.situation?.possession);
+      const possession = state === "in" ? (possessionComp?.team?.abbreviation?.toLowerCase() || null) : null;
+
+      return {
+        week: eventWeek,
+        away: awayId,
+        home: homeId,
+        awayScore: status !== "UPCOMING" ? awayScore : null,
+        homeScore: status !== "UPCOMING" ? homeScore : null,
+        status,
+        period,
+        clockStr: shortDetail,
+        startISO: ev.date,
+        isIntl: intl,
+        venueCity: comp.venue?.address?.city || null,  // fallback label for international games missing from INTERNATIONAL_MATCHUPS
+        spread: parseSpread(comp.odds?.[0]?.details),  // { team, line } for the favorite; null once a game is final (ESPN drops odds)
+        possession  // team id of the team with the ball in a live game, else null
+      };
+    }
+
+    // Show a week's games in the weekly section. Saved games for that week (if any) show at once,
+    // then ESPN's scoreboard for that week replaces them when it answers.
+    async function showWeek(week) {
+      if (week < 1 || week > 18) return;
+      const requestId = ++weekNavRequestId;
+      if (week === currentWeekNumber) {
+        viewedWeekNumber = null;
+        viewedWeekGames = [];
+        renderThisWeeksGames();
+        return;
+      }
+      viewedWeekNumber = week;
+      viewedWeekGames = EMBEDDED_GAMES.filter(g => g.week === week);
+      renderThisWeeksGames();
+      try {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${week}&dates=2026`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const games = (data.events || []).map(ev => scoreboardEventToGame(ev, week)).filter(Boolean);
+        // Ignore a slow answer if another week was picked since
+        if (requestId !== weekNavRequestId || games.length === 0) return;
+        viewedWeekGames = games;
+        renderThisWeeksGames();
+      } catch (e) {}
+    }
+
+    document.getElementById("weekly-games-prev").addEventListener("click", () =>
+      showWeek((viewedWeekNumber ?? currentWeekNumber) - 1));
+    document.getElementById("weekly-games-next").addEventListener("click", () =>
+      showWeek((viewedWeekNumber ?? currentWeekNumber) + 1));
 
     async function syncLiveScoreboard() {
       try {
@@ -1172,44 +1297,16 @@
         const parsedWeekGames = [];
 
         events.forEach(ev => {
-          const eventWeek = ev.week?.number || wk;
-          const comp = ev.competitions?.[0];
-          if (!comp) return;
+          const game = scoreboardEventToGame(ev, wk);
+          if (!game) return;
+          parsedWeekGames.push(game);
+
+          const eventWeek = game.week;
+          const comp = ev.competitions[0];
           const state = comp.status?.type?.state;
-          const period = comp.status?.period || 0;
-          const shortDetail = comp.status?.type?.shortDetail || "";
-          const venueCountry = comp.venue?.address?.country;
-          const competitors = comp.competitors || [];
-          if (competitors.length !== 2) return;
-
-          const homeComp = competitors.find(c => c.homeAway === "home") || competitors[0];
-          const awayComp = competitors.find(c => c.homeAway === "away") || competitors[1];
-
-          const homeId = homeComp.team?.abbreviation?.toLowerCase();
-          const awayId = awayComp.team?.abbreviation?.toLowerCase();
-          const homeScore = homeComp.score?.displayValue ?? homeComp.score ?? null;
-          const awayScore = awayComp.score?.displayValue ?? awayComp.score ?? null;
-
-          let status = "UPCOMING";
-          if (state === "in") status = "LIVE";
-          else if (state === "post") status = "FINAL";
-
-          const intl = isInternationalGame(eventWeek, homeId, awayId, venueCountry);
-
-          parsedWeekGames.push({
-            week: eventWeek,
-            away: awayId,
-            home: homeId,
-            awayScore: status !== "UPCOMING" ? awayScore : null,
-            homeScore: status !== "UPCOMING" ? homeScore : null,
-            status,
-            period,
-            clockStr: shortDetail,
-            startISO: ev.date,
-            isIntl: intl,
-            venueCity: comp.venue?.address?.city || null,  // fallback label for international games missing from INTERNATIONAL_MATCHUPS
-            spread: parseSpread(comp.odds?.[0]?.details)  // { team, line } for the favorite; null once a game is final (ESPN drops odds)
-          });
+          const period = game.period;
+          const shortDetail = game.clockStr;
+          const competitors = comp.competitors;
 
           competitors.forEach(myComp => {
             const oppComp = competitors.find(c => c !== myComp);
@@ -1531,10 +1628,20 @@
       const tzEl = document.getElementById("weekly-games-tz");
       const grid = document.getElementById("weekly-games-grid");
 
-      titleEl.textContent = `This Week's Games (Week ${currentWeekNumber})`;
+      // Back on the current week (e.g. the week rolled over), so follow live data again
+      if (viewedWeekNumber === currentWeekNumber) {
+        viewedWeekNumber = null;
+        viewedWeekGames = [];
+      }
+      const shownWeek = viewedWeekNumber ?? currentWeekNumber;
+      titleEl.textContent = viewedWeekNumber === null
+        ? `This Week's Games (Week ${currentWeekNumber})`
+        : `Week ${shownWeek} Games`;
+      document.getElementById("weekly-games-prev").disabled = shownWeek <= 1;
+      document.getElementById("weekly-games-next").disabled = shownWeek >= 18;
       // Point the TV maps link at 506 Sports' page for the week being shown
       document.getElementById("weekly-games-tvmaps").href =
-        `https://506sports.com/nfl.php?yr=2026&wk=${currentWeekNumber}`;
+        `https://506sports.com/nfl.php?yr=2026&wk=${shownWeek}`;
       try {
         const tzAbbr = new Date().toLocaleTimeString([], { timeZoneName: "short" }).split(" ").pop();
         tzEl.textContent = `Local Time (${tzAbbr})`;
@@ -1543,13 +1650,16 @@
       }
 
       grid.innerHTML = "";
-      // Show games in kickoff order (earliest first); games without a start time go last.
-      // Sort is stable, so games sharing a kickoff keep their original order.
+      // Show final games first, then live, then upcoming; within each, kickoff order (earliest first).
+      // Games without a start time go last in their group. Sort is stable, so ties keep their original order.
+      const statusRank = { FINAL: 0, LIVE: 1, UPCOMING: 2 };
+      const rankOf = g => statusRank[g.status] ?? 3;
       const kickoffMs = g => g.startISO ? new Date(g.startISO).getTime() : Infinity;
-      const games = (currentWeekGames.length > 0
-        ? [...currentWeekGames]
-        : EMBEDDED_GAMES.filter(g => g.week === currentWeekNumber))
-        .sort((a, b) => kickoffMs(a) - kickoffMs(b));
+      const sourceGames = viewedWeekNumber === null ? currentWeekGames : viewedWeekGames;
+      const games = (sourceGames.length > 0
+        ? [...sourceGames]
+        : EMBEDDED_GAMES.filter(g => g.week === shownWeek))
+        .sort((a, b) => rankOf(a) - rankOf(b) || kickoffMs(a) - kickoffMs(b));
 
       games.forEach(g => {
         const awayTeam = NFL_TEAMS.find(t => t.id === g.away);
@@ -1566,11 +1676,15 @@
           : "";
 
         let headerRight = "";
-        let cardBorder = "border-slate-200 bg-white";
+        // Border width lives here (not in the tile's base classes) so crunch-time tiles can use a thicker one
+        let cardBorder = "border border-slate-200 bg-white";
 
         if (g.status === "LIVE") {
           headerRight = `<span class="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold animate-pulse">LIVE • ${g.clockStr || "IN PROGRESS"}</span>`;
-          cardBorder = "border-amber-400 bg-amber-50/40";
+          // Crunch time (close game in the 4th quarter or OT) gets a thicker, darker border
+          cardBorder = isCloseLateGame(g)
+            ? "border-[3px] border-amber-600 bg-amber-50/40"
+            : "border border-amber-400 bg-amber-50/40";
         } else if (g.status === "FINAL") {
           const dateTxt = g.startISO ? formatScheduleTileDate(g.startISO, false) : "";
           headerRight = `<span class="text-[10px] font-bold text-slate-500">FINAL ${dateTxt ? `• ${dateTxt}` : ""}</span>`;
@@ -1591,8 +1705,13 @@
           ? ` <span class="font-mono text-[11px] font-normal text-slate-500">${g.spread.line}</span>`
           : "";
 
+        // Tiny football right after the name of the team with the ball in a live game
+        const possessionHtml = (teamId) => g.status === "LIVE" && g.possession === teamId
+          ? ` <span class="text-[10px]" title="Has the ball" aria-label="has the ball">🏈</span>`
+          : "";
+
         const tile = document.createElement("div");
-        tile.className = `weekly-game-tile border ${cardBorder} rounded-xl p-3 shadow-2xs flex flex-col gap-2 transition hover:border-blue-300`;
+        tile.className = `weekly-game-tile ${cardBorder} rounded-xl p-3 shadow-2xs flex flex-col gap-2 transition hover:border-blue-300`;
 
         tile.innerHTML = `
           <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
@@ -1603,14 +1722,14 @@
             <div class="flex items-center justify-between cursor-pointer hover:text-blue-600" data-team-id="${g.away}">
               <div class="flex items-center gap-2 min-w-0">
                 ${awayLogo ? `<img src="${awayLogo}" alt="${awayName}" class="w-5 h-5 object-contain flex-shrink-0">` : ""}
-                <span class="${awayBold} truncate">${awayName}${spreadHtml(g.away)}</span>
+                <span class="${awayBold} truncate">${awayName}${possessionHtml(g.away)}${spreadHtml(g.away)}</span>
               </div>
               <span class="font-mono ${g.status !== "UPCOMING" ? "text-sm font-bold text-slate-900" : "text-[11px] text-slate-400"}">${awayScoreDisplay}</span>
             </div>
             <div class="flex items-center justify-between cursor-pointer hover:text-blue-600" data-team-id="${g.home}">
               <div class="flex items-center gap-2 min-w-0">
                 ${homeLogo ? `<img src="${homeLogo}" alt="${homeName}" class="w-5 h-5 object-contain flex-shrink-0">` : ""}
-                <span class="${homeBold} truncate">${homeName}${spreadHtml(g.home)}</span>
+                <span class="${homeBold} truncate">${homeName}${possessionHtml(g.home)}${spreadHtml(g.home)}</span>
               </div>
               <span class="font-mono ${g.status !== "UPCOMING" ? "text-sm font-bold text-slate-900" : "text-[11px] text-slate-400"}">${homeScoreDisplay}</span>
             </div>
