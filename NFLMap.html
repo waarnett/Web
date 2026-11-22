@@ -1259,16 +1259,23 @@
     async function showWeek(week) {
       if (week < 1 || week > 18) return;
       const requestId = ++weekNavRequestId;
-      if (week === currentWeekNumber) {
-        viewedWeekNumber = null;
-        viewedWeekGames = [];
-        renderThisWeeksGames();
-        return;
-      }
-      viewedWeekNumber = week;
-      viewedWeekGames = EMBEDDED_GAMES.filter(g => g.week === week);
-      renderThisWeeksGames();
+      // Hold the grid at its current height until the new week's games are in, so the page
+      // doesn't get shorter (and jump the scroll position) while the grid is briefly empty
+      const grid = document.getElementById("weekly-games-grid");
+      grid.style.minHeight = `${grid.offsetHeight}px`;
+      // Whether the bottom of the section (last tiles and the note under them) is on screen before the change
+      const wrapper = document.getElementById("weekly-games-wrapper");
+      const bottomWasVisible = wrapper.getBoundingClientRect().bottom <= window.innerHeight + 1;
       try {
+        if (week === currentWeekNumber) {
+          viewedWeekNumber = null;
+          viewedWeekGames = [];
+          renderThisWeeksGames();
+          return;
+        }
+        viewedWeekNumber = week;
+        viewedWeekGames = EMBEDDED_GAMES.filter(g => g.week === week);
+        renderThisWeeksGames();
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${week}&dates=2026`);
         if (!res.ok) return;
         const data = await res.json();
@@ -1277,13 +1284,32 @@
         if (requestId !== weekNavRequestId || games.length === 0) return;
         viewedWeekGames = games;
         renderThisWeeksGames();
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        // Release the hold only for the latest pick; an older, slower one must not release it early
+        if (requestId === weekNavRequestId) {
+          grid.style.minHeight = "";
+          // If the new week has more rows and pushes the bottom of the section below the window,
+          // scroll just enough to show it again, but never so far that the week buttons go off the top
+          const bottom = wrapper.getBoundingClientRect().bottom;
+          if (bottomWasVisible && bottom > window.innerHeight) {
+            const overflow = bottom + 8 - window.innerHeight;  // 8px of breathing room below the note
+            const buttonsRoom = document.getElementById("weekly-games-prev").getBoundingClientRect().top - 8;
+            const scrollAmount = Math.min(overflow, buttonsRoom);
+            if (scrollAmount > 0) window.scrollBy({ top: scrollAmount, behavior: "smooth" });
+          }
+        }
+      }
     }
 
     document.getElementById("weekly-games-prev").addEventListener("click", () =>
       showWeek((viewedWeekNumber ?? currentWeekNumber) - 1));
     document.getElementById("weekly-games-next").addEventListener("click", () =>
       showWeek((viewedWeekNumber ?? currentWeekNumber) + 1));
+    // While another week is showing, clicking the live games badge goes back to this week
+    document.getElementById("weekly-live-indicator").addEventListener("click", () => {
+      if (viewedWeekNumber !== null) showWeek(currentWeekNumber);
+    });
 
     async function syncLiveScoreboard() {
       try {
@@ -1637,6 +1663,10 @@
       titleEl.textContent = viewedWeekNumber === null
         ? `This Week's Games (Week ${currentWeekNumber})`
         : `Week ${shownWeek} Games`;
+      // The live games badge is clickable (back to this week) only while another week is showing
+      const liveBadge = document.getElementById("weekly-live-indicator");
+      liveBadge.classList.toggle("cursor-pointer", viewedWeekNumber !== null);
+      liveBadge.title = viewedWeekNumber !== null ? "Back to this week" : "";
       document.getElementById("weekly-games-prev").disabled = shownWeek <= 1;
       document.getElementById("weekly-games-next").disabled = shownWeek >= 18;
       // Point the TV maps link at 506 Sports' page for the week being shown
