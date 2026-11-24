@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How Bill and Joan are related</title>
+<style>
+:root{--text:#1f1f1d;--muted:#6b6a65;--faint:#8a8984;--border:rgba(0,0,0,.12);--strong:rgba(0,0,0,.28);--accent:#2a6bd1;--accent-bg:rgba(42,107,209,.08);
+--aqua-bg:#dff1ec;--aqua:#0f6e56;--violet-bg:#ecebfd;--violet:#3c3489;--yellow-bg:#faefd6;--yellow:#633806;--bg:#faf9f5}
+@media (prefers-color-scheme:dark){:root{--text:#ecebe6;--muted:#a5a39b;--faint:#8a8984;--border:rgba(255,255,255,.12);--strong:rgba(255,255,255,.3);--accent:#7fb0f5;--accent-bg:rgba(127,176,245,.12);
+--aqua-bg:#123b31;--aqua:#9fe1cb;--violet-bg:#2b2752;--violet:#cecbf6;--yellow-bg:#3d2a0d;--yellow:#fac775;--bg:#1a1a19}}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+main{max-width:760px;margin:0 auto;padding:2rem 1.25rem 3rem}
+h1{font-size:22px;font-weight:500;margin:0 0 .25rem}
+.sub{color:var(--muted);font-size:14px;margin:0 0 1.5rem}
+.sel{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin:0 0 1.25rem}
+.sel button{font:inherit;color:var(--text);background:transparent;border:.5px solid var(--strong);text-align:left;padding:8px 10px;line-height:1.35;border-radius:8px;cursor:pointer}
+.sel button:hover{background:var(--accent-bg)}
+.sel button.on{border:2px solid var(--accent);background:var(--accent-bg);padding:6.5px 8.5px}
+.sel .r{font-size:12px;color:var(--muted);display:block}.sel .n{font-size:13px;display:block}
+.cp{border:.5px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 10px;text-align:center;background:var(--yellow-bg);color:var(--yellow)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);gap:4px 8px}
+.hdr{font-size:12px;color:var(--muted);margin-bottom:4px}
+.cell{border-radius:8px;padding:5px 10px;font-size:13px;line-height:1.3}
+.cell .y{font-size:11px}
+.b{background:var(--aqua-bg);color:var(--aqua)}.j{background:var(--violet-bg);color:var(--violet)}
+.g{font-size:11px;color:var(--faint);text-align:center;align-self:center}
+.note{font-size:12px;color:var(--muted);margin-top:1.5rem;line-height:1.5}
+</style></head><body><main>
+<h1>How Bill and Joan are related</h1>
+<p class="sub">Eight ancestral couples appear in both family trees. Pick one to see both lines of descent.</p>
+<div class="sel" id="sel"></div>
+<div class="cp"><div id="cp" style="font-size:15px;font-weight:500"></div><div id="cm" style="font-size:12px"></div></div>
+<div class="grid hdr"><div id="hb"></div><div class="g">gens back</div><div id="hj" style="text-align:right"></div></div>
+<div class="grid" id="tree"></div>
+<p class="note">"8th cousins" means the shared couple are 7th-great-grandparents of both; "once removed" means one person is a generation further down. Weakest link: Joan's Reed line includes three people with no dates. Source: Arnett-Dunshee.ged, Ancestry.com export, 2026 Nov 24.</p>
+</main>
+<script>
+const D=[{"couple": [["John Humiston", "1659"], ["Sarah Tuttle", "1661"]], "place": "New Haven, CT", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["James Harold Humiston", "1764"], ["James Harold Humiston", "1734"], ["James Humiston", "1696"]], "joan": [["Constance Elizabeth McArthur", "1923"], ["Joan Dean Gillett Barnes", "1892"], ["Charlotte Lancraft Gillett", "1865"], ["John Dean Gillett", "1819"], ["Amarilla Sanford", "1793"], ["Jarius Sanford", "1762"], ["Kezia Brockett", "1735"], ["Lydia Humiston", "1689"]], "rel": "8th cousins"}, {"couple": [["Nathaniel Merriman", "1613"], ["Joan Lines", "1628"]], "place": "England → New Haven", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["James Harold Humiston", "1764"], ["Hannah Hitchcock", "1737"], ["Matthias Hitchcock", "1688"], ["Abigail Merriman", "1654"]], "joan": [["Constance Elizabeth McArthur", "1923"], ["Joan Dean Gillett Barnes", "1892"], ["Charlotte Lancraft Gillett", "1865"], ["John Dean Gillett", "1819"], ["Amarilla Sanford", "1793"], ["Lucy Cook", "1761"], ["Sarah Merriman", "1733"], ["Caleb Merriman", "1707"], ["John Merriman", "1659"]], "rel": "9th cousins"}, {"couple": [["William Reed", "1639"], ["Hester Tomson", "1652"]], "place": "Weymouth / Barnstable, MA", "bill": [["Alexandra Capps", "1912"], ["Guy Hubert Capps", "1881"], ["William Lemuel Capps", "1854"], ["Elisha Fly Capps", "1824"], ["Lucy Fly", "1803"], ["Elizabeth Rochelle Reed", "1775"], ["Capt William Reed", "1748"], ["John Reed", "1713"], ["John Reed", "1687"]], "joan": [["William Edward Dunshee", "1918"], ["Frank Chandler Dunshee", "1891"], ["Katherine Caroline Chandler", "1863"], ["Marcia Abigail Gurney", "1833"], ["Alonzo Gurney", "1802"], ["Molly Reed", "1766"], ["Mercy Reed", "?"], ["Mary Ford", "?"], ["Mercy Reed", "?"]], "rel": "9th cousins"}, {"couple": [["William Andrews", "1596"], ["Abigail Graves", "1610"]], "place": "England → New Haven", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["James Harold Humiston", "1764"], ["Hannah Hitchcock", "1737"], ["Thankful Andrews", "1693"], ["William Andrews", "1665"], ["Samuel Andrews", "1645"]], "joan": [["William Edward Dunshee", "1918"], ["Frank Chandler Dunshee", "1891"], ["William Hulin Dunshee", "1856"], ["Francis Kellogg Dunshee", "1828"], ["Miranda E Parmelee", "1802"], ["Asaph Parmelee", "1778"], ["Asaph Parmelee", "1746"], ["Sarah Taylor", "1707"], ["Elizabeth Spencer", "1668"], ["Esther Andrews", "1641"]], "rel": "10th cousins"}, {"couple": [["William Peck", "1604"], ["Elizabeth Buck", "1608"]], "place": "England → New Haven", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["James Harold Humiston", "1764"], ["Hannah Hitchcock", "1737"], ["Thankful Andrews", "1693"], ["William Andrews", "1665"], ["Elizabeth Peck", "1643"]], "joan": [["Constance Elizabeth McArthur", "1923"], ["Joan Dean Gillett Barnes", "1892"], ["Charlotte Lancraft Gillett", "1865"], ["John Dean Gillett", "1819"], ["Amarilla Sanford", "1793"], ["Lucy Cook", "1761"], ["Sarah Merriman", "1733"], ["Caleb Merriman", "1707"], ["Elizabeth Peck", "1673"], ["John Peck", "?"]], "rel": "10th cousins"}, {"couple": [["Henry Peck", "1618"], ["Joan Allen", "1617"]], "place": "England → New Haven", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["Lydia Peck", "1767"], ["James Peck", "1742"], ["Abel Peck", "1709"], ["Stephen Peck", "1681"], ["Eleazer Henry Peck", "1642"]], "joan": [["Constance Elizabeth McArthur", "1923"], ["Joan Dean Gillett Barnes", "1892"], ["Charlotte Lancraft Gillett", "1865"], ["John Dean Gillett", "1819"], ["Amarilla Sanford", "1793"], ["Jarius Sanford", "1762"], ["Thomas Sanford", "1739"], ["Desire Bunnell", "1711"], ["Desire Peck", "1687"], ["Benjamin Peck", "1647"]], "rel": "10th cousins"}, {"couple": [["John Parmelee", "1585"], ["Hannah Bradley", "1605"]], "place": "England → Guilford, CT", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["Lydia Peck", "1767"], ["Elizabeth Hall", "1744"], ["Ruth Johnson", "1723"], ["John Johnson", "1687"], ["John Johnson", "1661"], ["Hannah Parmelee", "1625"]], "joan": [["William Edward Dunshee", "1918"], ["Frank Chandler Dunshee", "1891"], ["William Hulin Dunshee", "1856"], ["Francis Kellogg Dunshee", "1828"], ["Miranda E Parmelee", "1802"], ["Asaph Parmelee", "1778"], ["Asaph Parmelee", "1746"], ["Jonathan Parmelee", "1701"], ["Joshua Parmelee", "1661"], ["John Parmelee Jr", "1615"]], "rel": "10th cousins, once removed"}, {"couple": [["Ezechiell Sanford", "1586"], ["Rose Warner", "1588"]], "place": "Essex, England → CT", "bill": [["William Van Dyke Arnett", "1913"], ["Ethel Claire Van Dyke", "1888"], ["Fannie Fern Fulton", "1867"], ["Ann Eliza Humiston", "1837"], ["Charles Peck Humiston", "1799"], ["Lydia Peck", "1767"], ["James Peck", "1742"], ["Abel Peck", "1709"], ["Susannah Collier", "1684"], ["Elizabeth Sanford", "1645"], ["Robert Sanford", "1615"]], "joan": [["Constance Elizabeth McArthur", "1923"], ["Joan Dean Gillett Barnes", "1892"], ["Charlotte Lancraft Gillett", "1865"], ["John Dean Gillett", "1819"], ["Amarilla Sanford", "1793"], ["Jarius Sanford", "1762"], ["Thomas Sanford", "1739"], ["William Sanford", "1711"], ["Thomas Sanford", "1677"], ["Thomas Sanford", "1644"]], "rel": "10th cousins, once removed"}];
+const sel=document.getElementById('sel');
+D.forEach((d,i)=>{const b=document.createElement('button');b.innerHTML=`<span class="n">${d.couple[0][0].split(' ').pop()} / ${d.couple[1][0].split(' ').pop()}</span><span class="r">${d.rel}</span>`;b.onclick=()=>show(i);sel.appendChild(b);});
+function cell(cls,p){return `<div class="cell ${cls}">${p[0]} <span class="y">${p[1]==='?'?'(no date)':p[1]}</span></div>`}
+function show(i){
+  [...sel.children].forEach((b,k)=>b.classList.toggle('on',k===i));
+  const d=D[i];
+  document.getElementById('cp').textContent=d.couple.map(p=>`${p[0]} (${p[1]})`).join('  and  ');
+  document.getElementById('cm').textContent=`${d.place} · Bill and Joan are ${d.rel}`;
+  const sideB=d.bill[0][0].startsWith('William Van')?"father's side":"mother's side";
+  const sideJ=d.joan[0][0].startsWith('William Edward')?"father's side":"mother's side";
+  document.getElementById('hb').textContent=`Bill's line (${sideB})`;
+  document.getElementById('hj').textContent=`Joan's line (${sideJ})`;
+  const n=Math.max(d.bill.length,d.joan.length);
+  const bb=[...d.bill].reverse(), jj=[...d.joan].reverse();
+  while(bb.length<n) bb.unshift(null); while(jj.length<n) jj.unshift(null);
+  let h='';
+  for(let r=0;r<n;r++) h+=(bb[r]?cell('b',bb[r]):'<div></div>')+`<div class="g">${n-r}</div>`+(jj[r]?cell('j',jj[r]):'<div></div>');
+  h+=`<div class="cell b" style="font-weight:500">William Alexander Arnett <span class="y">1950</span></div><div class="g"></div><div class="cell j" style="font-weight:500">Joan Gillette Dunshee <span class="y">1944</span></div>`;
+  document.getElementById('tree').innerHTML=h;
+}
+show(0);
+</script></body></html>
