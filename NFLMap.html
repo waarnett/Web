@@ -1321,8 +1321,32 @@
         const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard", { cache: "no-store" });
         if (!res.ok) throw new Error("Scoreboard unavailable");
         const data = await res.json();
-        const events = data.events || [];
-        const wk = data.week?.number || 10;
+        let events = data.events || [];
+        let wk = data.week?.number || currentWeekNumber;
+
+        // ESPN keeps a week as "current" until early Wednesday. Treat the week as starting on Tuesday instead:
+        // once every game is final and it's Tuesday (local time) or later after the week's last kickoff,
+        // show the next regular-season week.
+        const isRegularSeason = (data.season?.type ?? 2) === 2;
+        const allFinal = events.length > 0 && events.every(ev => ev.competitions?.[0]?.status?.type?.state === "post");
+        if (isRegularSeason && allFinal && wk < 18) {
+          const lastKickoff = new Date(Math.max(...events.map(ev => new Date(ev.date).getTime())));
+          const nextTuesday = new Date(lastKickoff);
+          nextTuesday.setHours(0, 0, 0, 0);
+          nextTuesday.setDate(nextTuesday.getDate() + (((2 - nextTuesday.getDay() + 7) % 7) || 7));
+          if (Date.now() >= nextTuesday.getTime()) {
+            const nextRes = await fetch(
+              `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=${wk + 1}&dates=${data.season?.year || 2026}`,
+              { cache: "no-store" });
+            if (nextRes.ok) {
+              const nextData = await nextRes.json();
+              if ((nextData.events || []).length > 0) {
+                wk += 1;
+                events = nextData.events;
+              }
+            }
+          }
+        }
         currentWeekNumber = wk;
 
         const parsedWeekGames = [];
