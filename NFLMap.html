@@ -1653,7 +1653,16 @@
           borderClass = "border-amber-400 bg-amber-50/60 shadow-xs hover:border-amber-500 hover:shadow-md cursor-pointer";
         }
 
-        cell.className = `border ${borderClass} ${currentWeekOutline} rounded-xl p-2 flex flex-col justify-between min-h-[74px] transition group`;
+        // Games against the favorite team get a red border (the current week keeps its blue ring outside it)
+        const vsFavorite = favoriteTeamId && item.oppId === favoriteTeamId;
+        let borderWidth = "border";
+        if (vsFavorite) {
+          borderClass = borderClass.split(" ").filter(c => !c.startsWith("border-") && !c.startsWith("hover:border-")).join(" ") + " border-red-600";
+          borderWidth = "border-2";
+        }
+        const outline = vsFavorite ? currentWeekOutline.replace("border-blue-600", "") : currentWeekOutline;
+
+        cell.className = `${borderWidth} ${borderClass} ${outline} rounded-xl p-2 flex flex-col justify-between min-h-[74px] transition group`;
         cell.title = oppTeam
           ? `Switch schedule to ${oppTeam.name}${item.isIntl ? " (International Game)" : ""}`
           : `Opponent: ${oppLabel}`;
