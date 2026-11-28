@@ -207,6 +207,10 @@
                   <span>details</span>
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                 </a>
+                <!-- Toggles this team as the favorite (remembered in this browser); handler set in showHoverCard -->
+                <button type="button" id="card-favorite-btn" class="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-rose-50 transition" aria-pressed="false">
+                  <svg id="card-favorite-icon" class="w-4 h-4" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.7-4.35-9.33-8.36C.9 9.9 2.1 6 5.6 5.1c2.1-.55 4.1.4 5.4 2.1.4.5.6.5 1 0 1.3-1.7 3.3-2.65 5.4-2.1 3.5.9 4.7 4.8 2.93 7.54C18.7 16.65 12 21 12 21z"></path></svg>
+                </button>
               </div>
               <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 <!-- Clicking a badge switches the standings to that conference / division (handlers set in showHoverCard) -->
@@ -1037,6 +1041,34 @@
       return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     }
 
+    // Favorite team id (or null), remembered in this browser across reloads and visits
+    const FAVORITE_TEAM_KEY = "nfl_map_favorite_team";
+    let favoriteTeamId = null;
+    try {
+      favoriteTeamId = localStorage.getItem(FAVORITE_TEAM_KEY) || null;
+    } catch (e) {}
+
+    function setFavoriteTeam(teamId) {
+      favoriteTeamId = teamId;
+      try {
+        if (teamId) localStorage.setItem(FAVORITE_TEAM_KEY, teamId);
+        else localStorage.removeItem(FAVORITE_TEAM_KEY);
+      } catch (e) {}
+    }
+
+    // Filled red heart when the shown team is the favorite, outlined gray otherwise
+    function updateFavoriteButton(team) {
+      const isFav = favoriteTeamId === team.id;
+      const btn = document.getElementById("card-favorite-btn");
+      const icon = document.getElementById("card-favorite-icon");
+      icon.setAttribute("fill", isFav ? "currentColor" : "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("class", `w-4 h-4 ${isFav ? "text-rose-600" : "text-slate-400"}`);
+      btn.setAttribute("aria-pressed", String(isFav));
+      btn.title = isFav ? `Remove ${team.shortName} as favorite team` : `Mark ${team.shortName} as favorite team`;
+      btn.setAttribute("aria-label", btn.title);
+    }
+
     const teamSchedulesCache = {};
     const liveGamesByTeam = {};
     let currentWeekNumber = 10;
@@ -1753,6 +1785,14 @@
           headerRight = `<span class="text-[10px] font-semibold text-slate-500">${dateTxt}${timeTxt ? ` • ${timeTxt}` : ""}</span>`;
         }
 
+        // Games involving the favorite team get a red border (crunch-time games keep their thicker width)
+        const involvesFavorite = favoriteTeamId && (g.away === favoriteTeamId || g.home === favoriteTeamId);
+        if (involvesFavorite) {
+          const bg = cardBorder.split(" ").filter(c => c.startsWith("bg-")).join(" ");
+          const width = g.status === "LIVE" && isCloseLateGame(g) ? "border-[3px]" : "border-2";
+          cardBorder = `${width} border-red-600 ${bg}`;
+        }
+
         const awayScoreDisplay = g.status !== "UPCOMING" && g.awayScore !== null ? g.awayScore : (awayTeam ? `(${formatRecord(awayTeam)})` : "");
         const homeScoreDisplay = g.status !== "UPCOMING" && g.homeScore !== null ? g.homeScore : (homeTeam ? `(${formatRecord(homeTeam)})` : "");
 
@@ -1770,7 +1810,7 @@
           : "";
 
         const tile = document.createElement("div");
-        tile.className = `weekly-game-tile ${cardBorder} rounded-xl p-3 shadow-2xs flex flex-col gap-2 transition hover:border-blue-300`;
+        tile.className = `weekly-game-tile ${cardBorder} rounded-xl p-3 shadow-2xs flex flex-col gap-2 transition ${involvesFavorite ? "" : "hover:border-blue-300"}`;
 
         tile.innerHTML = `
           <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
@@ -2130,6 +2170,14 @@
       const liveGame = liveGamesByTeam[team.id];
       const liveText = liveGame ? ` • LIVE ${liveGame.scoreStr} (${liveGame.clockStr})` : "";
       document.getElementById("card-record-badge").textContent = `${formatRecord(team)} (${team.divRec} DIV)${liveText}`;
+
+      updateFavoriteButton(team);
+      document.getElementById("card-favorite-btn").onclick = (e) => {
+        e.stopPropagation();
+        setFavoriteTeam(favoriteTeamId === team.id ? null : team.id);
+        updateFavoriteButton(team);
+        renderThisWeeksGames();
+      };
 
       const espnLink = document.getElementById("card-espn-link");
       espnLink.href = `https://www.espn.com/nfl/team/_/name/${team.id}`;
